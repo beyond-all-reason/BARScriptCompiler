@@ -1,12 +1,13 @@
-# written by ashdnazg https://github.com/ashdnazg/bos2cob
+# Written by ashdnazg https://github.com/ashdnazg/bos2cob
+# Extended by Beherith to https://github.com/beyond-all-reason/BARScriptCompiler
 # released under the GNU GPL v3 license
 
-import sys
 import sys
 import os.path
 from glob import glob
 import struct
 import cob_file
+
 
 LINEAR_SCALE = 65536
 ANGULAR_SCALE = 182
@@ -103,6 +104,7 @@ OPS = {
 	'-' : OPCODES['SUB'],
 	'*' : OPCODES['MUL'],
 	'/' : OPCODES['DIV'],
+	'%' : OPCODES['MOD'],
 	'&' : OPCODES['BITWISE_AND'],
 	'|' : OPCODES['BITWISE_OR'],
 	'<' : OPCODES['SET_LESS'],
@@ -119,9 +121,22 @@ OPS = {
 	'or' : OPCODES['LOGICAL_OR'],
 }
 
+OPS_PYEVAL = {
+	"+" : "+",
+	"-" : "-",
+	"*" : "*",
+	"/" : "/",
+	"&" : "&&",
+	"|" : "||",
+	"%" : "%",
+}
+
+OPS_PYEVAL_PRECEDENCE = ["%", "*", "/", "+", "-", "|", "&"]
+
 OPS_PRECEDENCE = {
 	'*' : 1,
 	'/' : 1,
+	'%' : 1,
 	'+' : 2,
 	'-' : 2,
 	'<' : 3,
@@ -189,19 +204,176 @@ class Node(object):
 	def clear(self):
 		self._children = []
 
-	def print_node(self, indent = 0, out_file = sys.stdout):
-		if self._type in PRINTED_NODES:
+	def print_node(self, indent = 0, out_file = sys.stdout, verbose = False):
+		if verbose or self._type in PRINTED_NODES:
 			indentation = '  ' * indent
 			if self._text is not None:
 				out_file.write("%s<%s> %s </%s>\n" %(indentation, self._type, escape(self._text), self._type))
 			else:
 				out_file.write("%s<%s>\n" % (indentation, self._type))
 				for child in self._children:
-					child.print_node(indent + 1, out_file=out_file)
+					child.print_node(indent + 1, out_file=out_file,verbose=verbose)
 				out_file.write("%s</%s>\n" % (indentation, self._type))
 		else:
 			for child in self._children:
-				child.print_node(indent, out_file=out_file)
+				child.print_node(indent, out_file=out_file, verbose=verbose)
+
+	def term_is_a_signedFloatConstant(self):
+		if self._type== "term" and len(self._children)==1:
+			child = self._children[0]
+			if child._type== "constant"  and len(child._children)==1:
+				child = child._children[0]
+				if child._type== "signedFloatConstant" and len(child._children)==1:
+					child = child._children[0]
+					if child._type== "floatConstant" and len(child._children)==0:
+						return child
+		return None
+
+	def fold_node(self, depth = 0):
+		# We need to fold left, fold right and check for parenthesis
+		foldcount = 0
+		for child in self._children:
+			foldcount += child.fold_node(depth +1)
+
+		foldcount
+		foldedone = True
+		while(foldedone):
+			foldedone = False
+
+			# Handle Negative
+			if self._type == "signedFloatConstant" and len(self._children) ==2 and self._children[0]._text == '-':
+				self._children.pop(0)
+				self._children[0]._text = '-' + self._children[0]._text
+
+			#Handle []
+			if self._type == "constant" and len(self._children) ==3:
+				sym1 = self._children[0]._text
+				sym2 = self._children[2]._text
+				if sym1 == '[' and sym2 == ']':
+					self._children.pop(2)
+					self._children.pop(0)
+					self._children[0]._children[0]._text = str(float(self._children[0]._children[0]._text) * LINEAR_SCALE)
+					
+				if sym1 == '<' and sym2 == '>':
+					self._children.pop(2)
+					self._children.pop(0)
+					self._children[0]._children[0]._text = str(float(self._children[0]._children[0]._text) * ANGULAR_SCALE)
+
+
+
+			if self._type == 'expression' and len(self._children) >=2:
+				for pyop in OPS_PYEVAL_PRECEDENCE: 
+					i = 0
+					while (i < len(self._children) - 1):
+					#for i in range(len(self._children) - 1):
+						# we always fold into term1 in this case, and delete the next opterm
+						if (i+1) >= len(self._children):
+							break
+						term1 = self._children[i].term_is_a_signedFloatConstant()
+						if not term1 and self._children[i]._type == 'opterm' and self._children[i]._children[1].term_is_a_signedFloatConstant():
+							term1 = self._children[i]._children[1].term_is_a_signedFloatConstant()
+						if term1 is None:
+							i+=1
+							continue
+
+						opterm = self._children[i+1]
+						if opterm._children[0]._type != "op" or len(opterm._children) < 2:
+							i+=1
+							continue
+
+						term2 = opterm._children[1].term_is_a_signedFloatConstant()
+						if term2 is None:
+							i+=1
+							continue
+
+						op = opterm._children[0]._children[0]._text
+						if op != pyop:
+							i+=1
+							continue
+
+						try:
+							expr = term1._text + ' ' + op + ' ' + term2._text
+							result = eval(expr)
+							if op == '/' and float(result) == 0 and float(term1._text) !=0:
+								print ("Warning: A division folding resulted in a zero result", expr)
+								#raise Exception("divisionunderflow")
+							term1._text = str(result)
+							self._children.pop(i+1)
+							#print("Eval of %s to %f successful"%( expr, result))
+
+
+							foldcount += 1
+							foldedone = True
+	
+						except:
+							i+=1
+							print ("Warning: Cant evaluate expression", expr)
+							
+
+						'''
+						if term1:
+							opterm = self._children[i+1]._type == 'opterm'
+							if opterm:
+								opterm = self._children[i+1]
+								if opterm._children[0]._type == "op" and opterm._children[1].term_is_a_signedFloatConstant():
+									term2 = opterm._children[1].term_is_a_signedFloatConstant()
+									op = opterm._children[0]._children[0]._text
+									if op in OPS_PRECEDENCE:
+										term2 = opterm._children[1].term_is_a_signedFloatConstant() 
+										if term1 and term2 and op:
+											try:
+												expr = term1 + ' ' + op + ' ' + term2
+												result = eval(term1 + ' ' + op + ' ' + term2)
+												# replace self with term
+												floatConstant = Node("floatConstant", text = str(result))
+												signedFloatConstant = Node("signedFloatConstant")
+												signedFloatConstant.add_child(floatConstant)
+												constant = Node("constant")
+												constant.add_child(signedFloatConstant)
+												newterm = Node("term")
+												newterm.add_child(constant)
+												self._children = [newterm]	
+												foldcount += 1
+												print("Folded expr", expr)
+												foldedone = True
+												break
+											except:
+												print ("Failed to evaluate expression", expr)
+												'''
+					
+						"""
+							<term>
+							<symbol> ( </symbol>
+							<expression>
+								<term>
+								<constant>
+									<signedFloatConstant>
+									<floatConstant> 3 </floatConstant>
+									</signedFloatConstant>
+								</constant>
+								</term>
+							</expression>
+							<symbol> ) </symbol>
+							</term>
+				"""
+			if self._type == "term" and len(self._children) == 3:
+				symbolstart = self._children[0]
+				symbolend = self._children[2]
+				expression = self._children[1]
+				if symbolstart._type == "symbol" and symbolend._type == "symbol" and len(expression._children) == 1:
+					newterm = expression._children[0].term_is_a_signedFloatConstant()
+					if newterm is not None:
+						self._children=[expression._children[0]._children[0]]
+
+					#print("folded parenthesis")
+
+					foldcount += 1
+					foldedone = True
+
+			return foldcount
+
+				## looks like we can fold these two into a simple term
+
 
 	def __getitem__(self, i):
 		return self._children[i]
@@ -219,7 +391,18 @@ class Node(object):
 		if self._text is None:
 			return "".join(c.get_text() for c in self._children)
 		return self._text
+	
+	def count_descendants(self):
+		d = 1
+		for child in self._children:
+			d += child.count_descendants()
+		return d
 
+	def __repr__(self) -> str:
+		return f'{self._type}:{self.count_descendants()}/{len(self._children)}:{self._text}'
+	
+	
+	
 def parse_string(pump, node):
 	token = pump.next()
 	if type(token) == tuple:
@@ -1058,7 +1241,9 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 					included = alt_path
 
 				content = open(included, 'r').read()
+				print ("Opening include file", included)
 				for prep_tokens in preprocess(content, include_path, defs, recursion + 1):
+					#print (prep_tokens,idx)
 					yield prep_tokens, idx
 			except:
 				print ('Error: Couldn\'t include %s, at token %s at %d' % (included, token, idx))
@@ -1146,10 +1331,29 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 		exit(1)
 
 
+'''
+import pcpp
+from io import StringIO
 
+# Custom Preprocessor class inheriting from pcpp.Preprocessor
+class MyPreprocessor(pcpp.Preprocessor):
+	def __init__(self, input_string):
+		super(MyPreprocessor, self).__init__()
+		# Use StringIO to simulate file input and output
+		self.line_directive = None
+		self.input = input_string
+		self.output = StringIO()
+	
+	def preprocess(self):
+		# Parse and preprocess the input
+		defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
+		self.parse(defaults + self.input)
+		self.write(self.output)
+		# Return the preprocessed output as a string
+		return self.output.getvalue()
+'''
 
-
-def main(path, output_path = None):
+def main(path, output_path = None, write_ast = False):
 	if path[-1] == '/':
 		input_path = path[:-1]
 	else:
@@ -1158,21 +1362,28 @@ def main(path, output_path = None):
 		print ("File %s doesn't exist" % (input_path,))
 		exit()
 	if os.path.isdir(input_path):
-		include_path = input_path
+		#include_path = input_path
 		sys.path.append(input_path)
 		files = glob(os.path.join(input_path,"*.%s" % (BOS_EXT,)))
 	else:
 		files = [input_path]
 		input_path = os.path.split(input_path)[0]
+		if output_path is None:
+			output_path = "%s.%s" % (os.path.splitext(input_path)[0], COB_EXT)
 	for bos_file_path in files:
-		print ("processing %s" % (bos_file_path,))
+		print ("Preprocessing %s" % (bos_file_path,))
 		root = Node('root')
 		content = open(bos_file_path, 'r').read() # why rb binary?
-		pump = Pump(preprocess(content, input_path))
+		#pcpp_preproc = MyPreprocessor(content)
+		#content = pcpp_preproc.preprocess()
+		# FOR SOME GODFORSAKEN REASON THE DEFS DICT IS RETAINED AND HAS TO BE REDEFINED HERE!
+		pump = Pump(preprocess(content, input_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN_UNIT_VALUE" : ""}))
+		print ("Parsing %s"%(bos_file_path))
 		result = try_parse(pump, root, '_file')
 		if len(pump.next()) != 0:
 			print("Leftovers while parsing:")
 			print (pump._leftovers[pump._index - 1:pump._max_index], pump._index, pump._max_index)
+			print("At: " + ''.join([t[0] for t in pump._leftovers[pump._index - 1:pump._max_index]]))
 			print ("Syntax Error!")
 			lines = content.splitlines()
 			for j in range(pump._max_index -4, pump._max_index):
@@ -1187,18 +1398,28 @@ def main(path, output_path = None):
 
 			exit(1)
 
-		# root.print_node()
+		
+		output_path = "%s.%s" % (os.path.splitext(bos_file_path)[0], COB_EXT)
+		#root.print_node()
 		# output_file = open(output_path, "wb")
 		# sys.stdout = output_file
+			
+		print ("Folding Constants %s"%(bos_file_path))
+		foldcount = root.fold_node()
+
+		if write_ast:
+			root.print_node(verbose=False, out_file=(open(output_path+"_intermediate.ast",'w')))
+
+		print("Folded %d constants" %foldcount)
+		
+		print ("Compiling %s"%(bos_file_path))
 		comp = Compiler(root)
 
 		#OUTPUT NEW COB
 
 		data = comp.get_cob()
-		print (len(data))
-		if output_path == None:
-			output_path = "%s.%s" % (os.path.splitext(bos_file_path)[0], COB_EXT)
-		print("bos2cob Writing", output_path)
+		#print (len(data))
+		print("bos2cob Compile success, Writing:", output_path)
 		output_file = open(output_path, "wb")
 		output_file.write(data)
 
@@ -1234,4 +1455,6 @@ if __name__ == '__main__':
 		main(sys.argv[1])
 	else:
 		print ("Specify a path to a .%s file, or a path to a directory containing .%s files"%(BOS_EXT,BOS_EXT))
-		main("armaap.bos")
+		
+		#main("raptorscopy/raptor_worm_m.bos")
+		#main("unitscopy/")
