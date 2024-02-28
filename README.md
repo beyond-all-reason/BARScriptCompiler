@@ -10,6 +10,8 @@
   - Hit Ctrl + F6 to run compiler
       
 - [ ] Add cmd options to wrapper
-- [ ] Optimize constants
+- [X] Optimize constants
+- [ ] Validate modulo operator
+- [ ] Better Wrapper (something is stateful :/)  
 
 
