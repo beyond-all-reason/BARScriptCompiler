@@ -1,3 +1,13 @@
+## Known improvements:
+
+- Python3
+- Better printing of syntax errors
+- Constant folding
+- Working when compiling whole directories
+- Optional pcpp preprocessor support
+- More expletives in 
+
+
 ## Stuff needing doing
 
 - [X] Convert bos2cob.py to python3
@@ -14,4 +24,7 @@
 - [ ] Validate modulo operator
 - [ ] Better Wrapper (something is stateful :/)  
 
+## License GPL, original author ashdnazg:
+
+https://github.com/ashdnazg/bos2cob
 
