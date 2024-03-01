@@ -7,7 +7,18 @@ import os.path
 from glob import glob
 import struct
 import cob_file
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
+parser.add_argument("--dontfold", action='store_true', help = "Disable constant folding optimization")
+parser.add_argument("--nopcpp", action='store_true', help = "Fallback to builtin preprocessor instead of pcpp")
+parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed syntax tree into a _initial.ast file")
+parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
+parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
+parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos")
+
+args = parser.parse_args()
 
 LINEAR_SCALE = 65536
 ANGULAR_SCALE = 182
@@ -82,6 +93,88 @@ OPCODES = {
 	'ATTACH_UNIT' : 0x10083000,
 	'DROP_UNIT'   : 0x10084000,
 }
+
+if args.shortopcodes or True:
+	OPCODES = {
+
+"MOVE"        : 0x01,
+"TURN"        : 0x02,
+"SPIN"        : 0x03,
+"STOP_SPIN"   : 0x04,
+"SHOW"        : 0x05,
+"HIDE"        : 0x06,
+"CACHE"       : 0x07,
+"DONT_CACHE"  : 0x08,
+"MOVE_NOW"    : 0x0B,
+"TURN_NOW"    : 0x0C,
+"SHADE"       : 0x0D,
+"DONT_SHADE"  : 0x0E,
+"EMIT_SFX"    : 0x0F,
+
+"WAIT_FOR_TURN" : 0x11,
+"WAIT_FOR_MOVE" : 0x12,
+"SLEEP"     : 0x13,
+
+
+"PUSH_CONSTANT"     : 0x21,
+"PUSH_LOCAL_VAR"    : 0x22,
+"PUSH_STATIC"       : 0x23,
+"CREATE_LOCAL_VAR"  : 0x24,
+"POP_LOCAL_VAR"     : 0x25,
+"POP_STATIC"        : 0x26,
+"POP_STACK"         : 0x27,  
+
+"ADD"         : 0x31,
+"SUB"         : 0x32,
+"MUL"         : 0x33,
+"DIV"         : 0x34,
+"MOD"         : 0x39, 
+"BITWISE_AND" : 0x35,
+"BITWISE_OR"  : 0x36,
+"BITWISE_XOR" : 0x37,
+"BITWISE_NOT" : 0x38,
+"ABS"         : 0x40,
+
+"RAND"           : 0x41,
+"GET_UNIT_VALUE" : 0x42,
+"GET"            : 0x43,
+
+
+"SET_LESS"              : 0x51,
+"SET_LESS_OR_EQUAL"     : 0x52,
+"SET_GREATER"           : 0x53,
+"SET_GREATER_OR_EQUAL"  : 0x54,
+"SET_EQUAL"             : 0x55,
+"SET_NOT_EQUAL"         : 0x56,
+"LOGICAL_AND"           : 0x57,
+"LOGICAL_OR"            : 0x58,
+"LOGICAL_XOR"           : 0x59,
+"LOGICAL_NOT"           : 0x5A,
+
+
+"START_SCRIPT"            : 0x61,
+"CALL_SCRIPT"             : 0x62, 
+"REAL_CALL"        : 0x63, 
+"LUA_CALL"         : 0x69, 
+"JUMP"             : 0x64,
+"RETURN"           : 0x65,
+"JUMP_NOT_EQUAL"   : 0x66,
+"SIGNAL"           : 0x67,
+"SET_SIGNAL_MASK"  : 0x68,
+
+
+"EXPLODE"    : 0x71,
+"PLAY_SOUND" : 0x72,
+
+
+"SET"     : 0x82,
+"ATTACH_UNIT"  : 0x83,
+"DROP_UNIT"    : 0x84,
+	}
+	#for i in range(256):
+	#	if i not in OPCODES.values():
+	#		print("case 0x%x:"%(i))
+
 for key in OPCODES:
 	OPCODES[key] = struct.pack("<L", OPCODES[key])
 
@@ -139,6 +232,7 @@ OPS_PRECEDENCE = {
 	'%' : 1,
 	'+' : 2,
 	'-' : 2,
+	#'ABS': 2,
 	'<' : 3,
 	'>' : 3,
 	'<=' : 3,
@@ -158,6 +252,7 @@ OPS_PRECEDENCE = {
 UNARY_OPS = {
 	'NOT' : OPCODES['LOGICAL_NOT'],
 	'!' : OPCODES['LOGICAL_NOT'],
+	#'ABS' : OPCODES['ABS'],
 }
 
 BOS_EXT = 'bos'
@@ -1331,29 +1426,33 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 		exit(1)
 
 
-'''
-import pcpp
-from io import StringIO
+if not args.nopcpp:
+	import pcpp
+	from io import StringIO
 
-# Custom Preprocessor class inheriting from pcpp.Preprocessor
-class MyPreprocessor(pcpp.Preprocessor):
-	def __init__(self, input_string):
-		super(MyPreprocessor, self).__init__()
-		# Use StringIO to simulate file input and output
-		self.line_directive = None
-		self.input = input_string
-		self.output = StringIO()
-	
-	def preprocess(self):
-		# Parse and preprocess the input
-		defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
-		self.parse(defaults + self.input)
-		self.write(self.output)
-		# Return the preprocessed output as a string
-		return self.output.getvalue()
-'''
+	# Custom Preprocessor class inheriting from pcpp.Preprocessor
+	class MyPreprocessor(pcpp.Preprocessor):
+		def __init__(self, input_string):
+			super(MyPreprocessor, self).__init__()
+			# Use StringIO to simulate file input and output
+			self.line_directive = None
+			self.input = input_string
+			self.output = StringIO()
+		
+		def preprocess(self):
+			# Parse and preprocess the input
+			defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
+			self.parse(defaults + self.input)
+			self.write(self.output)
+			# Return the preprocessed output as a string
+			return self.output.getvalue()
 
-def main(path, output_path = None, write_ast = False):
+		def on_error(self, file, line, msg):
+			print(file, line, msg)
+			exit(1)
+			return super().on_error(file, line, msg)()
+
+def main(path, output_path = None):
 	if path[-1] == '/':
 		input_path = path[:-1]
 	else:
@@ -1374,8 +1473,13 @@ def main(path, output_path = None, write_ast = False):
 		print ("Preprocessing %s" % (bos_file_path,))
 		root = Node('root')
 		content = open(bos_file_path, 'r').read() # why rb binary?
-		#pcpp_preproc = MyPreprocessor(content)
-		#content = pcpp_preproc.preprocess()
+		if not args.nopcpp:
+			pcpp_preproc = MyPreprocessor(content)
+			pcpp_preproc.add_path(os.path.dirname(os.path.abspath(bos_file_path)))
+			if args.include:
+				pcpp_preproc.add_path(args.include)
+
+			content = pcpp_preproc.preprocess()
 		# FOR SOME GODFORSAKEN REASON THE DEFS DICT IS RETAINED AND HAS TO BE REDEFINED HERE!
 		pump = Pump(preprocess(content, input_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN_UNIT_VALUE" : ""}))
 		print ("Parsing %s"%(bos_file_path))
@@ -1395,23 +1499,24 @@ def main(path, output_path = None, write_ast = False):
 					if searchpos > offset:
 						print("%d: At line %d (offset = %d) with token %s "%(j, i+1, offset, word ))
 						break
-
 			exit(1)
 
-		
 		output_path = "%s.%s" % (os.path.splitext(bos_file_path)[0], COB_EXT)
+		if args.dumpast:
+			root.print_node(verbose=False, out_file=(open(output_path+"_initial.ast",'w')))
 		#root.print_node()
 		# output_file = open(output_path, "wb")
 		# sys.stdout = output_file
 			
-		print ("Folding Constants %s"%(bos_file_path))
-		foldcount = root.fold_node()
+		if not args.dontfold:
+			print ("Folding Constants %s"%(bos_file_path))
+			foldcount = root.fold_node()
 
-		if write_ast:
-			root.print_node(verbose=False, out_file=(open(output_path+"_intermediate.ast",'w')))
+			if args.dumpast:
+				root.print_node(verbose=False, out_file=(open(output_path+"_folded.ast",'w')))
 
-		print("Folded %d constants" %foldcount)
-		
+			print("Folded %d constants" %foldcount)
+			
 		print ("Compiling %s"%(bos_file_path))
 		comp = Compiler(root)
 
@@ -1451,9 +1556,10 @@ def main(path, output_path = None, write_ast = False):
 
 
 if __name__ == '__main__':
-	if len(sys.argv)>1:
-		main(sys.argv[1])
+	if len(args.filename)>1:
+		main(args.filename)
 	else:
+		parser.print_help()
 		print ("Specify a path to a .%s file, or a path to a directory containing .%s files"%(BOS_EXT,BOS_EXT))
 		
 		#main("raptorscopy/raptor_worm_m.bos")
