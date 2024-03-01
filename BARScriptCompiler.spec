@@ -2,7 +2,7 @@
 
 block_cipher = None
 
-a = Analysis(['bos3cob_py3.py'],
+a = Analysis(['bos2cob_py3.py'],
              pathex=[''],
              binaries=[],
              datas=[],
