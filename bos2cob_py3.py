@@ -330,7 +330,6 @@ class Node(object):
 		for child in self._children:
 			foldcount += child.fold_node(depth +1)
 
-		foldcount
 		foldedone = True
 		while(foldedone):
 			foldedone = False
@@ -389,9 +388,9 @@ class Node(object):
 						try:
 							expr = term1._text + ' ' + op + ' ' + term2._text
 							result = eval(expr)
-							if op == '/' and float(result) == 0 and float(term1._text) !=0:
-								print ("Warning: A division folding resulted in a zero result", expr)
-								#raise Exception("divisionunderflow")
+							if op == '/' and float(result) < 1 and float(term1._text) !=0:
+								print ("Warning: A division folding resulted in < 1 result", expr)
+								raise 
 							term1._text = str(result)
 							self._children.pop(i+1)
 							#print("Eval of %s to %f successful"%( expr, result))
@@ -459,11 +458,9 @@ class Node(object):
 					newterm = expression._children[0].term_is_a_signedFloatConstant()
 					if newterm is not None:
 						self._children=[expression._children[0]._children[0]]
-
-					#print("folded parenthesis")
-
-					foldcount += 1
-					foldedone = True
+						#print("folded parenthesis")
+						foldcount += 1
+						foldedone = True
 
 			return foldcount
 
@@ -1510,12 +1507,17 @@ def main(path, output_path = None):
 			
 		if not args.dontfold:
 			print ("Folding Constants %s"%(bos_file_path))
-			foldcount = root.fold_node()
-
+			folds = root.fold_node()
+			totalfolds = folds
+			while (folds > 0):
+				#print("Pass", folds)
+				folds = root.fold_node()
+				totalfolds += folds
+			
 			if args.dumpast:
 				root.print_node(verbose=False, out_file=(open(output_path+"_folded.ast",'w')))
 
-			print("Folded %d constants" %foldcount)
+			print("Folded %d constants" %totalfolds)
 			
 		print ("Compiling %s"%(bos_file_path))
 		comp = Compiler(root)
