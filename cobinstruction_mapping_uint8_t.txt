@@ -1,0 +1,233 @@
+
+// Model interaction
+static constexpr int MOVE       = 0x10001000; = 0x01;
+static constexpr int TURN       = 0x10002000; = 0x02;
+static constexpr int SPIN       = 0x10003000; = 0x03;
+static constexpr int STOP_SPIN  = 0x10004000; = 0x04;
+static constexpr int SHOW       = 0x10005000; = 0x05;
+static constexpr int HIDE       = 0x10006000; = 0x06;
+static constexpr int CACHE      = 0x10007000; = 0x07;
+static constexpr int DONT_CACHE = 0x10008000; = 0x08;
+static constexpr int MOVE_NOW   = 0x1000B000; = 0x0B;
+static constexpr int TURN_NOW   = 0x1000C000; = 0x0C;
+static constexpr int SHADE      = 0x1000D000; = 0x0D;
+static constexpr int DONT_SHADE = 0x1000E000; = 0x0E;
+static constexpr int EMIT_SFX   = 0x1000F000; = 0x0F;
+
+// Blocking operations
+static constexpr int WAIT_TURN  = 0x10011000; = 0x11;
+static constexpr int WAIT_MOVE  = 0x10012000; = 0x12;
+static constexpr int SLEEP      = 0x10013000; = 0x13;
+
+// Stack manipulation
+static constexpr int PUSH_CONSTANT    = 0x10021001; = 0x21;
+static constexpr int PUSH_LOCAL_VAR   = 0x10021002; = 0x22;
+static constexpr int PUSH_STATIC      = 0x10021004; = 0x23;
+static constexpr int CREATE_LOCAL_VAR = 0x10022000; = 0x24;
+static constexpr int POP_LOCAL_VAR    = 0x10023002; = 0x25;
+static constexpr int POP_STATIC       = 0x10023004; = 0x26;
+static constexpr int POP_STACK        = 0x10024000; = 0x27;  
+
+// Arithmetic operations
+static constexpr int ADD         = 0x10031000; = 0x31;
+static constexpr int SUB         = 0x10032000; = 0x32;
+static constexpr int MUL         = 0x10033000; = 0x33;
+static constexpr int DIV         = 0x10034000; = 0x34;
+static constexpr int MOD         = 0x10034001; = 0x39; 
+static constexpr int BITWISE_AND = 0x10035000; = 0x35;
+static constexpr int BITWISE_OR  = 0x10036000; = 0x36;
+static constexpr int BITWISE_XOR = 0x10037000; = 0x37;
+static constexpr int BITWISE_NOT = 0x10038000; = 0x38;
+
+// Native function calls
+static constexpr int RAND           = 0x10041000; = 0x41;
+static constexpr int GET_UNIT_VALUE = 0x10042000; = 0x42;
+static constexpr int GET            = 0x10043000; = 0x43;
+
+// Comparison
+static constexpr int SET_LESS             = 0x10051000; = 0x51;
+static constexpr int SET_LESS_OR_EQUAL    = 0x10052000; = 0x52;
+static constexpr int SET_GREATER          = 0x10053000; = 0x53;
+static constexpr int SET_GREATER_OR_EQUAL = 0x10054000; = 0x54;
+static constexpr int SET_EQUAL            = 0x10055000; = 0x55;
+static constexpr int SET_NOT_EQUAL        = 0x10056000; = 0x56;
+static constexpr int LOGICAL_AND          = 0x10057000; = 0x57;
+static constexpr int LOGICAL_OR           = 0x10058000; = 0x58;
+static constexpr int LOGICAL_XOR          = 0x10059000; = 0x59;
+static constexpr int LOGICAL_NOT          = 0x1005A000; = 0x5A;
+
+// Flow control
+static constexpr int START           = 0x10061000; = 0x61;
+static constexpr int CALL            = 0x10062000; = 0x62; 
+static constexpr int REAL_CALL       = 0x10062001; = 0x63; 
+static constexpr int LUA_CALL        = 0x10062002; = 0x69; 
+static constexpr int JUMP            = 0x10064000; = 0x64;
+static constexpr int RETURN          = 0x10065000; = 0x65;
+static constexpr int JUMP_NOT_EQUAL  = 0x10066000; = 0x66;
+static constexpr int SIGNAL          = 0x10067000; = 0x67;
+static constexpr int SET_SIGNAL_MASK = 0x10068000; = 0x68;
+
+// Piece destruction
+static constexpr int EXPLODE    = 0x10071000; 0x71;
+static constexpr int PLAY_SOUND = 0x10072000; 0x72;
+
+// Special functions
+static constexpr int SET    = 0x10082000; = 0x82;
+static constexpr int ATTACH = 0x10083000; = 0x83;
+static constexpr int DROP   = 0x10084000; = 0x84;
+
+
+	OPCODES = {
+
+"MOVE"        : 0x01,
+"TURN"        : 0x02,
+"SPIN"        : 0x03,
+"STOP_SPIN"   : 0x04,
+"SHOW"        : 0x05,
+"HIDE"        : 0x06,
+"CACHE"       : 0x07,
+"DONT_CACHE"  : 0x08,
+"MOVE_NOW"    : 0x0B,
+"TURN_NOW"    : 0x0C,
+"SHADE"       : 0x0D,
+"DONT_SHADE"  : 0x0E,
+"EMIT_SFX"    : 0x0F,
+
+"WAIT_TURN" : 0x11,
+"WAIT_MOVE" : 0x12,
+"SLEEP"     : 0x13,
+
+
+"PUSH_CONSTANT"     : 0x21,
+"PUSH_LOCAL_VAR"    : 0x22,
+"PUSH_STATIC"       : 0x23,
+"CREATE_LOCAL_VAR"  : 0x24,
+"POP_LOCAL_VAR"     : 0x25,
+"POP_STATIC"        : 0x26,
+"POP_STACK"         : 0x27,  
+
+"ADD"         : 0x31,
+"SUB"         : 0x32,
+"MUL"         : 0x33,
+"DIV"         : 0x34,
+"MOD"         : 0x39, 
+"BITWISE_AND" : 0x35,
+"BITWISE_OR"  : 0x36,
+"BITWISE_XOR" : 0x37,
+"BITWISE_NOT" : 0x38,
+
+"RAND"           : 0x41,
+"GET_UNIT_VALUE" : 0x42,
+"GET"            : 0x43,
+
+
+"SET_LESS"              : 0x51,
+"SET_LESS_OR_EQUAL"     : 0x52,
+"SET_GREATER"           : 0x53,
+"SET_GREATER_OR_EQUAL"  : 0x54,
+"SET_EQUAL"             : 0x55,
+"SET_NOT_EQUAL"         : 0x56,
+"LOGICAL_AND"           : 0x57,
+"LOGICAL_OR"            : 0x58,
+"LOGICAL_XOR"           : 0x59,
+"LOGICAL_NOT"           : 0x5A,
+
+
+"START"            : 0x61,
+"CALL"             : 0x62, 
+"REAL_CALL"        : 0x63, 
+"LUA_CALL"         : 0x69, 
+"JUMP"             : 0x64,
+"RETURN"           : 0x65,
+"JUMP_NOT_EQUAL"   : 0x66,
+"SIGNAL"           : 0x67,
+"SET_SIGNAL_MASK"  : 0x68,
+
+
+"EXPLODE"    : 0x71,
+"PLAY_SOUND" : 0x72,
+
+
+"SET"     : 0x82,
+"ATTACH"  : 0x83,
+"DROP"    : 0x84,
+	}
+
+
+    
+// Model interaction
+static constexpr int MOVE       = 0x10001000; = 0x01;
+static constexpr int TURN       = 0x10002000; = 0x02;
+static constexpr int SPIN       = 0x10003000; = 0x03;
+static constexpr int STOP_SPIN  = 0x10004000; = 0x04;
+static constexpr int SHOW       = 0x10005000; = 0x05;
+static constexpr int HIDE       = 0x10006000; = 0x06;
+static constexpr int CACHE      = 0x10007000; = 0x07;
+static constexpr int DONT_CACHE = 0x10008000; = 0x08;
+static constexpr int MOVE_NOW   = 0x1000B000; = 0x0B;
+static constexpr int TURN_NOW   = 0x1000C000; = 0x0C;
+static constexpr int SHADE      = 0x1000D000; = 0x0D;
+static constexpr int DONT_SHADE = 0x1000E000; = 0x0E;
+static constexpr int EMIT_SFX   = 0x1000F000; = 0x0F;
+
+// Blocking operations
+static constexpr int WAIT_TURN  = 0x10011000; = 0x11;
+static constexpr int WAIT_MOVE  = 0x10012000; = 0x12;
+static constexpr int SLEEP      = 0x10013000; = 0x13;
+
+// Stack manipulation
+static constexpr int PUSH_CONSTANT    = 0x10021001; = 0x21;
+static constexpr int PUSH_LOCAL_VAR   = 0x10021002; = 0x22;
+static constexpr int PUSH_STATIC      = 0x10021004; = 0x23;
+static constexpr int CREATE_LOCAL_VAR = 0x10022000; = 0x24;
+static constexpr int POP_LOCAL_VAR    = 0x10023002; = 0x25;
+static constexpr int POP_STATIC       = 0x10023004; = 0x26;
+static constexpr int POP_STACK        = 0x10024000; = 0x27;  
+
+// Arithmetic operations
+static constexpr int ADD         = 0x10031000; = 0x31;
+static constexpr int SUB         = 0x10032000; = 0x32;
+static constexpr int MUL         = 0x10033000; = 0x33;
+static constexpr int DIV         = 0x10034000; = 0x34;
+static constexpr int MOD         = 0x10034001; = 0x39; 
+static constexpr int BITWISE_AND = 0x10035000; = 0x35;
+static constexpr int BITWISE_OR  = 0x10036000; = 0x36;
+static constexpr int BITWISE_XOR = 0x10037000; = 0x37;
+static constexpr int BITWISE_NOT = 0x10038000; = 0x38;
+
+// Native function calls
+static constexpr int RAND           = 0x10041000; = 0x41;
+static constexpr int GET_UNIT_VALUE = 0x10042000; = 0x42;
+static constexpr int GET            = 0x10043000; = 0x43;
+
+// Comparison
+static constexpr int SET_LESS             = 0x10051000; = 0x51;
+static constexpr int SET_LESS_OR_EQUAL    = 0x10052000; = 0x52;
+static constexpr int SET_GREATER          = 0x10053000; = 0x53;
+static constexpr int SET_GREATER_OR_EQUAL = 0x10054000; = 0x54;
+static constexpr int SET_EQUAL            = 0x10055000; = 0x55;
+static constexpr int SET_NOT_EQUAL        = 0x10056000; = 0x56;
+static constexpr int LOGICAL_AND          = 0x10057000; = 0x57;
+static constexpr int LOGICAL_OR           = 0x10058000; = 0x58;
+static constexpr int LOGICAL_XOR          = 0x10059000; = 0x59;
+static constexpr int LOGICAL_NOT          = 0x1005A000; = 0x5A;
+
+// Flow control
+static constexpr int START           = 0x10061000; = 0x61;
+static constexpr int CALL            = 0x10062000; = 0x62; 
+static constexpr int REAL_CALL       = 0x10062001; = 0x63; 
+static constexpr int LUA_CALL        = 0x10062002; = 0x69; 
+static constexpr int JUMP            = 0x10064000; = 0x64;
+static constexpr int RETURN          = 0x10065000; = 0x65;
+static constexpr int JUMP_NOT_EQUAL  = 0x10066000; = 0x66;
+static constexpr int SIGNAL          = 0x10067000; = 0x67;
+static constexpr int SET_SIGNAL_MASK = 0x10068000; = 0x68;
+
+// Piece destruction
+static constexpr int EXPLODE    = 0x10071000; 0x71;
+static constexpr int PLAY_SOUND = 0x10072000; 0x72;
+
+// Special functions
+static constexpr int SET    = 0x10082000; = 0x82;
+static constexpr int ATTACH = 0x10083000; = 0x83;
+static constexpr int DROP   = 0x10084000; = 0x84;
