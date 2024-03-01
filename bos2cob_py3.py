@@ -94,7 +94,7 @@ OPCODES = {
 	'DROP_UNIT'   : 0x10084000,
 }
 
-if args.shortopcodes or True:
+if args.shortopcodes:
 	OPCODES = {
 
 "MOVE"        : 0x01,
