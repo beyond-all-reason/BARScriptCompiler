@@ -527,7 +527,7 @@ ELEMENTS_DICT = {
 				'hide', 'show', 'set', 'get', 'explode', 'signal', 'mask', 'emit', 'sfx', 'type', 'sleep',
 				'attach', 'drop', 'unit', 'rand', 'unknown_unit_value',
 				'dont', 'cache', 'shade', 'shadow', 'play', 'sound'),
-	'symbol' : ('{', '}', '(', ')', '[', ']', ',', ';', '+', '-', '*', '/', '&', '|',
+	'symbol' : ('{', '}', '(', ')', '[', ']', ',', ';', '+', '-', '*', '/', '%', '&', '|',
 				'<', '>', '=', '!', 'or', 'and', 'not'),
 }
 
@@ -539,18 +539,18 @@ ATOMS_DICT = {
 }
 
 PARSER_DICT = {
-	'_file' : (('_declaration%',),),
+	'_file' : (('_declaration~',),),
 	'_declaration' : (('_pieceDec',), ('_staticVarDec',), ('_funcDec',),),
-	'_pieceDec' : (('piece', '_pieceName', '_commaPiece%', ';',),),
+	'_pieceDec' : (('piece', '_pieceName', '_commaPiece~', ';',),),
 	'_commaPiece' : ((',', '_pieceName',),),
 	'_pieceName' : (('_identifier',),),
-	'_staticVarDec' : (('static', '-', 'var', '_varName', '_commaVar%', ';',),),
+	'_staticVarDec' : (('static', '-', 'var', '_varName', '_commaVar~', ';',),),
 	'_commaVar' : ((',', '_varName',),),
 	'_varName' : (('_identifier',),),
 	'_funcDec' : (('_funcName', '(', '_argumentList', ')', '_statementBlock',),),
 	'_funcName' : (('_identifier',),),
 	'_argumentList' : (('_arguments?',),),
-	'_arguments' : (('_varName', '_commaVar%',),),
+	'_arguments' : (('_varName', '_commaVar~',),),
 
 	'_statement' : (('_keywordStatement', ';',), ('_varStatement', ';',), ('_ifStatement',), ('_whileStatement',), ('_forStatement',), ('_assignStatement', ';',), (';',),),
 	'_assignStatement' : (('_varName', '=', '_expression',), ('_incStatement',), ('_decStatement',),),
@@ -560,7 +560,7 @@ PARSER_DICT = {
 	'_elseBlock' : (('else', '_statementBlock',),),
 	'_whileStatement' : (('while', '(', '_expression', ')', '_statementBlock',),),
 	'_forStatement' : (('for', '(', '_expression', ';', '_expression', ';', '_expression', ';?', ')', '_statementBlock',),),
-	'_statementBlock' : (('{', '_statement%', '}',), ('_statement',),),
+	'_statementBlock' : (('{', '_statement~', '}',), ('_statement',),),
 
 	'_keywordStatement' : 	(
 								('_callStatement',),
@@ -634,10 +634,10 @@ PARSER_DICT = {
 	'_axis' : (('_axisLetter', '-', 'axis'),),
 	'_axisLetter' : (('x',),('y',),('z',),),
 	'_expressionList' : (('_expressions?',),),
-	'_expressions' : (('_expression', '_commaExpression%'),),
+	'_expressions' : (('_expression', '_commaExpression~'),),
 	'_commaExpression' : ((',', '_expression'),),
 	'_optionalCommaExpression' : (('_commaExpression?',),),
-	'_expression' : (('_term', '_opterm%',),),
+	'_expression' : (('_term', '_opterm~',),),
 	'_optionalExpression' : (('_expression?',),),
 	'_term' : (('_get',), ('_rand',), ('(', '_expression', ')',), ('_unaryOp', '_term',), ('_varName',),
 			   ('_constant',),),
@@ -645,7 +645,7 @@ PARSER_DICT = {
 	# '_unitValue' : (('_expression',),),
 	'_rand' : (('rand', '(' , '_expression', ',', '_expression', ')',),),
 	'_opterm' : (('_op', '_term',),),
-	'_op' : (('=', '=',), ('<' , '=',), ('>', '=',), ('!', '=',), ('|', '|',), ('&', '&',), ('+',), ('-',), ('*',), ('/',), ('&',), ('|',), ('<',), ('>',), ('OR',), ('AND',),),
+	'_op' : (('=', '=',), ('<' , '=',), ('>', '=',), ('!', '=',), ('|', '|',), ('&', '&',), ('+',), ('-',), ('*',), ('/',), ('%',), ('&',), ('|',), ('<',), ('>',), ('OR',), ('AND',),),
 	'_unaryOp' : (('!',), ('NOT',),),
 	'_constant' : (('<', '_signedFloatConstant', '>',), ('[', '_signedFloatConstant', ']',), ('_signedFloatConstant',), ('_signedIntegerConstant',), ),
 	'_signedFloatConstant' : (('-', '_floatConstant',), ('_floatConstant',),),
@@ -1097,7 +1097,7 @@ def parse(pump, node, block_type):
 		for child_type in alternative:
 			maybe = False
 			multiple = False
-			if child_type.endswith('%'):
+			if child_type.endswith('~'):
 				maybe = True
 				multiple = True
 			elif child_type.endswith('?'):
@@ -1108,7 +1108,7 @@ def parse(pump, node, block_type):
 			first = True
 			while first or multiple:
 				first = False
-				result = try_parse(pump, current_node, child_type.strip('?%'))
+				result = try_parse(pump, current_node, child_type.strip('?~'))
 				if not result:
 					break
 			if not (result or maybe):
@@ -1131,7 +1131,7 @@ def try_parse(pump, node, block_type):
 
 
 def token_generator(code):
-	symbol_delimiters = ['{', '}', '[', ']', '(', ')', ' ', '&', '|', '+', '-', '*', '/', ',', ';', '<', '>', '=', '!', '#', '\t', '\r', '\n', '\\']
+	symbol_delimiters = ['{', '}', '[', ']', '(', ')', ' ', '&', '|', '+', '-', '*', '/', '%', ',', ';', '<', '>', '=', '!', '#', '\t', '\r', '\n', '\\']
 	is_line_comment = False
 	is_multi_line_comment = False
 	is_in_quotation = False
