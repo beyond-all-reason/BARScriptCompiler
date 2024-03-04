@@ -4,8 +4,13 @@
 - Install Notepad++
 - Install NPPexec plugin for notepad++
 - Hit F6 to set up the compiler
-- Set up the nppexec script with: 
-- `"c:\whereveryourpythonis\python.exe" "C:\whereverthisscriptis\bos2cob_py3.py" "$(FULL_CURRENT_PATH)"`
+- Set up the nppexec script with:
+
+```
+npp_save
+"c:\whereveryourpythonis\python.exe" "C:\whereverthisscriptis\bos2cob_py3.py" "$(FULL_CURRENT_PATH)"
+```
+
 - Or use the prebuilt binary of BARScriptCompiler.exe
 - Save script
 - hit CTRL + F6 to compile it
