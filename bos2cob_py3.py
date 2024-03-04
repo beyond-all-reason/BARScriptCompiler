@@ -19,7 +19,7 @@ parser.add_argument("--include", type= str, help = "Additional include directory
 parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos")
 
 args = parser.parse_args()
-
+#args.filename = "C:/Users/Peti/Documents/My Games/Spring/games/Beyond-All-Reason.sdd/scripts/Raptors/raptora2.bos"
 LINEAR_SCALE = 65536
 ANGULAR_SCALE = 182
 
@@ -292,6 +292,7 @@ class Node(object):
 		self._type = node_type
 		self._text = text # None if text is None else text.encode('utf-8')
 		self._children = []
+		self._note = ""
 
 	def add_child(self, child):
 		self._children.append(child)
@@ -303,12 +304,12 @@ class Node(object):
 		if verbose or self._type in PRINTED_NODES:
 			indentation = '  ' * indent
 			if self._text is not None:
-				out_file.write("%s<%s> %s </%s>\n" %(indentation, self._type, escape(self._text), self._type))
+				out_file.write("%s<%s> %s </%s> %s\n" %(indentation, self._type, escape(self._text), self._type, self._note))
 			else:
-				out_file.write("%s<%s>\n" % (indentation, self._type))
+				out_file.write("%s<%s>\n %s" % (indentation, self._type,self._note))
 				for child in self._children:
 					child.print_node(indent + 1, out_file=out_file,verbose=verbose)
-				out_file.write("%s</%s>\n" % (indentation, self._type))
+				out_file.write("%s</%s>\n%s" % (indentation, self._typeself._note))
 		else:
 			for child in self._children:
 				child.print_node(indent, out_file=out_file, verbose=verbose)
@@ -388,7 +389,7 @@ class Node(object):
 						try:
 							expr = term1._text + ' ' + op + ' ' + term2._text
 							result = eval(expr)
-							if op == '/' and float(result) < 1 and float(term1._text) !=0:
+							if op == '/' and abs(float(result)) < 1 and float(term1._text) !=0:
 								print ("Warning: A division folding resulted in < 1 result", expr)
 								raise 
 							term1._text = str(result)
@@ -404,36 +405,6 @@ class Node(object):
 							print ("Warning: Cant evaluate expression", expr)
 							
 
-						'''
-						if term1:
-							opterm = self._children[i+1]._type == 'opterm'
-							if opterm:
-								opterm = self._children[i+1]
-								if opterm._children[0]._type == "op" and opterm._children[1].term_is_a_signedFloatConstant():
-									term2 = opterm._children[1].term_is_a_signedFloatConstant()
-									op = opterm._children[0]._children[0]._text
-									if op in OPS_PRECEDENCE:
-										term2 = opterm._children[1].term_is_a_signedFloatConstant() 
-										if term1 and term2 and op:
-											try:
-												expr = term1 + ' ' + op + ' ' + term2
-												result = eval(term1 + ' ' + op + ' ' + term2)
-												# replace self with term
-												floatConstant = Node("floatConstant", text = str(result))
-												signedFloatConstant = Node("signedFloatConstant")
-												signedFloatConstant.add_child(floatConstant)
-												constant = Node("constant")
-												constant.add_child(signedFloatConstant)
-												newterm = Node("term")
-												newterm.add_child(constant)
-												self._children = [newterm]	
-												foldcount += 1
-												print("Folded expr", expr)
-												foldedone = True
-												break
-											except:
-												print ("Failed to evaluate expression", expr)
-												'''
 					
 						"""
 							<term>
@@ -1056,6 +1027,7 @@ class Compiler(object):
 
 	def get_cob(self):
 		cob = cob_file.COB(self._functions, self._functions_code, self._pieces, self._static_vars, [])
+		self._header = cob._header
 		return cob.get_content()
 
 
@@ -1506,18 +1478,20 @@ def main(path, output_path = None):
 		# sys.stdout = output_file
 			
 		if not args.dontfold:
-			print ("Folding Constants %s"%(bos_file_path))
+			#print ("Folding Constants %s"%(bos_file_path))
 			folds = root.fold_node()
 			totalfolds = folds
+			passes = 0
 			while (folds > 0):
 				#print("Pass", folds)
 				folds = root.fold_node()
 				totalfolds += folds
+				passes  +=1
 			
 			if args.dumpast:
 				root.print_node(verbose=False, out_file=(open(output_path+"_folded.ast",'w')))
 
-			print("Folded %d constants" %totalfolds)
+			print("Folded %d constants in %d passes" %(totalfolds, passes))
 			
 		print ("Compiling %s"%(bos_file_path))
 		comp = Compiler(root)
@@ -1526,7 +1500,9 @@ def main(path, output_path = None):
 
 		data = comp.get_cob()
 		#print (len(data))
-		print("bos2cob Compile success, Writing:", output_path)
+		header = comp._header
+
+		print(f"Compile successful: {header['TotalScriptLen']} Commands, {header['NumberOfStaticVars']} Static-vars. Writing:", output_path)
 		output_file = open(output_path, "wb")
 		output_file.write(data)
 

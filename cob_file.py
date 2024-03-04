@@ -92,6 +92,7 @@ class COB(object):
 
 		self._content += script_name_content + piece_name_content
 
+		self._header = header
 	def get_content(self):
 		return self._content
 
