@@ -12,6 +12,9 @@ import argparse
 from io import StringIO
 import pcpp 
 
+import warnings
+warnings.filterwarnings('ignore', 'write lextab module')
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
 parser.add_argument("--dontfold", action='store_true', help = "Disable constant folding optimization")
