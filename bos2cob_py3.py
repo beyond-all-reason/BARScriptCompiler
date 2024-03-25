@@ -9,6 +9,9 @@ import struct
 import cob_file
 import argparse
 
+from io import StringIO
+import pcpp 
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
 parser.add_argument("--dontfold", action='store_true', help = "Disable constant folding optimization")
@@ -133,12 +136,20 @@ if args.shortopcodes:
 "BITWISE_OR"  : 0x36,
 "BITWISE_XOR" : 0x37,
 "BITWISE_NOT" : 0x38,
-"ABS"         : 0x40,
+
+
+"ABSOLUTE"		: 0x39,
+"MINIMUM"		: 0x3A,
+"MAXIMUM"		: 0x3B,
+"SIGN"			: 0x3C,
+"CLAMP"			: 0x3D,
+"DELTAHEADING"	: 0x3E,
+"KSINE"			: 0x3F,
+"KCOSINE"		: 0x40,
 
 "RAND"           : 0x41,
 "GET_UNIT_VALUE" : 0x42,
 "GET"            : 0x43,
-
 
 "SET_LESS"              : 0x51,
 "SET_LESS_OR_EQUAL"     : 0x52,
@@ -1396,7 +1407,6 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 
 
 if not args.nopcpp:
-	import pcpp
 	from io import StringIO
 
 	# Custom Preprocessor class inheriting from pcpp.Preprocessor
