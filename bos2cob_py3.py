@@ -131,7 +131,7 @@ if args.shortopcodes:
 "SUB"         : 0x32,
 "MUL"         : 0x33,
 "DIV"         : 0x34,
-"MOD"         : 0x39, 
+"MOD"         : 0x30, 
 "BITWISE_AND" : 0x35,
 "BITWISE_OR"  : 0x36,
 "BITWISE_XOR" : 0x37,
