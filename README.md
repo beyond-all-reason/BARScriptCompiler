@@ -23,6 +23,10 @@ Note that the pcpp preprocessor allows for very extensive customization and modu
 npp_save
 "C:\BARScriptCompiler\BARScriptCompiler.exe" "$(FULL_CURRENT_PATH)"
 ```
+
+![image](https://github.com/beyond-all-reason/BARScriptCompiler/assets/109391/cebc1d2e-0405-4106-9879-fb6efee55a5a)
+
+
 - hit `CTRL + F6` to compile it
 
 ## Setup Linux
