@@ -110,12 +110,12 @@ if args.shortopcodes:
 "STOP_SPIN"   : 0x04,
 "SHOW"        : 0x05,
 "HIDE"        : 0x06,
-"CACHE"       : 0x07,
-"DONT_CACHE"  : 0x08,
+#"CACHE"       : 0x07,
+#"DONT_CACHE"  : 0x08,
 "MOVE_NOW"    : 0x0B,
 "TURN_NOW"    : 0x0C,
-"SHADE"       : 0x0D,
-"DONT_SHADE"  : 0x0E,
+#"SHADE"       : 0x0D,
+#"DONT_SHADE"  : 0x0E,
 "EMIT_SFX"    : 0x0F,
 
 "WAIT_FOR_TURN" : 0x11,
@@ -148,8 +148,8 @@ if args.shortopcodes:
 "SIGN"			: 0x3C,
 "CLAMP"			: 0x3D,
 "DELTAHEADING"	: 0x3E,
-"KSINE"			: 0x3F,
-"KCOSINE"		: 0x40,
+"MSINE"			: 0x3F,
+"MCOSINE"		: 0x40,
 
 "RAND"           : 0x41,
 "GET_UNIT_VALUE" : 0x42,
@@ -675,7 +675,7 @@ IGNORED_KEYWORDS = ('accelerate','decelerate')
 
 
 class Compiler(object):
-	def __init__(self, tree):
+	def __init__(self, tree, cobVersion = 4):
 		self._static_vars = []
 		self._local_vars = []
 		self._pieces = []
@@ -716,6 +716,9 @@ class Compiler(object):
 			(self._local_vars, OPCODES["POP_LOCAL_VAR"]),
 			(self._static_vars, OPCODES["POP_STATIC"]),
 		)
+
+		self._cobVersion = cobVersion
+
 		self.parse(tree)
 
 	def current_offset(self):
@@ -1041,10 +1044,9 @@ class Compiler(object):
 		raise Exception("Var not found: %s" % (var_name,))
 
 	def get_cob(self):
-		cob = cob_file.COB(self._functions, self._functions_code, self._pieces, self._static_vars, [])
+		cob = cob_file.COB(self._functions, self._functions_code, self._pieces, self._static_vars, [], self._cobVersion)
 		self._header = cob._header
 		return cob.get_content()
-
 
 
 class Pump(object):
@@ -1508,7 +1510,7 @@ def main(path, output_path = None):
 			print("Folded %d constants in %d passes" %(totalfolds, passes))
 			
 		print ("Compiling %s"%(bos_file_path))
-		comp = Compiler(root)
+		comp = Compiler(root, cobVersion = 8 if args.shortopcodes == True else 4 )
 
 		#OUTPUT NEW COB
 

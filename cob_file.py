@@ -51,10 +51,10 @@ class COB(object):
 			self._content += struct.pack(PACK_FORMAT % (len(array),), *array)
 			self._offset += len(array) * 4
 
-	def __init__(self, function_names, functions_code, piece_names, static_vars, sound_names):
+	def __init__(self, function_names, functions_code, piece_names, static_vars, sound_names, cobVersion = 4):
 		self._content = b""
 		header = {
-			"VersionSignature"                  : 4,
+			"VersionSignature"                  : cobVersion,
 			"NumberOfScripts"                   : len(function_names),
 			"NumberOfPieces"                    : len(piece_names),
 			"TotalScriptLen"                    : sum(len(c) for c in functions_code.values()) // 4,
