@@ -1429,7 +1429,7 @@ if not args.nopcpp:
 			
 			#defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
 			self.define("TRUE 1")
-			self.define("FALSE 1")
+			self.define("FALSE 0")
 			self.define("UNKNOWN_UNIT_VALUE")
 			self.parse(self.input)
 			self.write(self.output)
