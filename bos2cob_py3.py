@@ -1269,7 +1269,7 @@ def token_generator(code):
 def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN_UNIT_VALUE" : ""}, recursion = 0):
 	if recursion > 10:
 		print ("Error: recursion limit reached")
-		exit(1)
+		sys.exit(1)
 
 	gen = token_generator(code)
 	is_preprocessor_directive = False
@@ -1282,10 +1282,10 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 		except Exception as e:
 			if ifs > 0:
 				print ("Error: Missing #endif at %d"%(idx))
-				exit(1)
+				sys.exit(1)
 			if is_preprocessor_directive:
 				print ("Preprocessor error at %d"%(idx))
-				exit(1)
+				sys.exit(1)
 			break
 
 		if token == '#':
@@ -1318,7 +1318,7 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 					alt_path = os.path.join(include_path, included)
 					if not os.path.exists(alt_path):
 						print ('Error: can\'t find %s at %d' %( included, idx))
-						exit(1)
+						sys.exit(1)
 					included = alt_path
 
 				content = open(included, 'r').read()
@@ -1328,7 +1328,7 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 					yield prep_tokens, idx
 			except:
 				print ('Error: Couldn\'t include %s, at token %s at %d' % (included, token, idx))
-				exit(1)
+				sys.exit(1)
 			continue
 
 		if token.lower() == 'define':
@@ -1402,14 +1402,14 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 		if token.lower() == 'endif':
 			if ifs == 0:
 				print ("Error: extraneous #endif at %d" % (idx))
-				exit(1)
+				sys.exit(1)
 			ifs -= 1
 			if skip > 0:
 				skip -= 1
 			continue
 
 		print ("Error: unhandled token %s at %d" % (token,idx))
-		exit(1)
+		sys.exit(1)
 
 
 if not args.nopcpp:
@@ -1426,15 +1426,19 @@ if not args.nopcpp:
 		
 		def preprocess(self):
 			# Parse and preprocess the input
-			defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
-			self.parse(defaults + self.input)
+			
+			#defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
+			self.define("TRUE 1")
+			self.define("FALSE 1")
+			self.define("UNKNOWN_UNIT_VALUE")
+			self.parse(self.input)
 			self.write(self.output)
 			# Return the preprocessed output as a string
 			return self.output.getvalue()
 
 		def on_error(self, file, line, msg):
 			print(file, line, msg)
-			exit(1)
+			sys.exit(1)
 			return super().on_error(file, line, msg)()
 
 def main(path, output_path = None):
@@ -1444,7 +1448,7 @@ def main(path, output_path = None):
 		input_path = path
 	if not os.path.exists(input_path):
 		print ("File %s doesn't exist" % (input_path,))
-		exit()
+		sys.exit()
 	if os.path.isdir(input_path):
 		#include_path = input_path
 		sys.path.append(input_path)
@@ -1465,6 +1469,10 @@ def main(path, output_path = None):
 				pcpp_preproc.add_path(args.include)
 
 			content = pcpp_preproc.preprocess()
+			if args.dumppcpp:
+				print("Writing PCPP file as "+bos_file_path+'.pcpp')
+				with open(bos_file_path + '.pcpp','w') as f:
+					f.write(content)
 		# FOR SOME GODFORSAKEN REASON THE DEFS DICT IS RETAINED AND HAS TO BE REDEFINED HERE!
 		pump = Pump(preprocess(content, input_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN_UNIT_VALUE" : ""}))
 		print ("Parsing %s"%(bos_file_path))
@@ -1484,7 +1492,7 @@ def main(path, output_path = None):
 					if searchpos > offset:
 						print("%d: At line %d (offset = %d) with token %s "%(j, i+1, offset, word ))
 						break
-			exit(1)
+			sys.exit(1)
 
 		output_path = "%s.%s" % (os.path.splitext(bos_file_path)[0], COB_EXT)
 		if args.dumpast:
@@ -1510,7 +1518,7 @@ def main(path, output_path = None):
 			print("Folded %d constants in %d passes" %(totalfolds, passes))
 			
 		print ("Compiling %s"%(bos_file_path))
-		comp = Compiler(root, cobVersion = 8 if args.shortopcodes == True else 4 )
+		comp = Compiler(root, cobVersion = (8 if args.shortopcodes == True else 4 ))
 
 		#OUTPUT NEW COB
 
