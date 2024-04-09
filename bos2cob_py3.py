@@ -748,7 +748,10 @@ class Compiler(object):
 	def parse_file(self, node):
 		for child_node in node.get_children():
 			if child_node[0].get_type() == 'funcDec':
-				self._functions.append(child_node[0][0].get_text())
+				function_name = child_node[0][0].get_text()
+				if function_name in self._functions:
+					raise Exception("Function %s already defined. Multiple definitions are not allowed!" % (function_name))
+				self._functions.append(function_name)
 
 		self.parse_children(node)
 
@@ -764,7 +767,10 @@ class Compiler(object):
 
 		for comma_piece in node.get_children()[2:]:
 			if comma_piece.get_type() == 'commaPiece':
-				self._pieces.append(comma_piece[1].get_text())
+				piece_name = comma_piece[1].get_text()
+				if piece_name in self._pieces:
+					raise Exception("Piece name %s already exists. Multiple definitions are not allowed!" % (piece_name))
+				self._pieces.append(piece_name)
 
 	def parse_funcDec(self, node):
 		del self._local_vars[0:]
