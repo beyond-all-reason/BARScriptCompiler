@@ -12,10 +12,10 @@ Can compile entire directories of BOS files.
 Note that the pcpp preprocessor allows for very extensive customization and modularization
 
 
-## Setup Windows
+## Setup Windows Notepad++
 - Download this repo as zip
 - Install Notepad++
-- Install NPPexec plugin for notepad++
+- Install the NPPexec plugin for Notepad++ from the Plugins->Plugins Admin menu
 - Hit `F6` to set up the compiler
 - Set up the nppexec script with:
 
@@ -28,6 +28,36 @@ npp_save
 
 
 - hit `CTRL + F6` to compile it
+
+## Setup for VSCode
+
+- From the Terminal->Configure Default Build task create a new build task for BARScriptCompiler
+
+Use the `tasks.json` style to launch the compiler:
+```
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "BARScriptCompiler",
+            "type": "shell",
+            "command": "N:/BARScriptCompiler/BARScriptCompiler.exe",
+            "args": [{
+                "value":"${file}",
+                "quoting": "strong"
+            }],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
+```
+
 
 ## Setup Linux
 
