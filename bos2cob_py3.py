@@ -756,14 +756,23 @@ class Compiler(object):
 		self.parse_children(node)
 
 	def parse_staticVarDec(self, node):
-		self._static_vars.append(node[3].get_text())
+		static_var_name = node[3].get_text()
+		if static_var_name in self._static_vars:
+			raise Exception("Static-var %s already exists. Multiple definitions are not allowed!" % (static_var_name))
+		self._static_vars.append(static_var_name)
 
 		for comma_var in node.get_children()[4:]:
 			if comma_var.get_type() == 'commaVar':
-				self._static_vars.append(comma_var[1].get_text())
+				static_var_name = comma_var[1].get_text()
+				if static_var_name in self._static_vars:
+					raise Exception("Static-var %s already exists. Multiple definitions are not allowed!" % (static_var_name))
+				self._static_vars.append(static_var_name)
 
 	def parse_pieceDec(self, node):
-		self._pieces.append(node[1].get_text())
+		piece_name = node[1].get_text()
+		if piece_name in self._pieces:
+			raise Exception("Piece name %s already exists. Multiple definitions are not allowed!" % (piece_name))
+		self._pieces.append(piece_name)
 
 		for comma_piece in node.get_children()[2:]:
 			if comma_piece.get_type() == 'commaPiece':
