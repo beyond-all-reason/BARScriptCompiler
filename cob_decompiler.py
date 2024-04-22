@@ -1,9 +1,15 @@
 #import bos2cob_py3
 import cob_file
 import struct
+import os 
 
 pf = cob_file.PACK_FORMAT
 hf = cob_file.COB_HEADER_FIELDS
+
+## Static analysis:
+#  stack depth
+# call depth?
+# instruction pairs
 
 
 OPCODES = {
@@ -77,53 +83,117 @@ OPCODES = {
 	'DROP_UNIT'   : 0x10084000,
 }
 rop = {}
+opargcnt = {} # keyed to opname, value is hist table
 for k,v in OPCODES.items():
-    rop[v] = k
+	rop[v] = k
+
+defines = {}
+for line in open('recoil_common_includes.h','r').readlines():
+	if '#define ' in line:
+		line = line.partition('#define ')[2].split(None, 1)
+		print (line)
+		if (len(line) > 1):
+			defines[line[0]] = line[1]
+
+
 
 def get_name(cob, pos):
-    start = pos
-    res = b''
-    while cob[pos]!= 0:
-        #print(cob[pos])
-        #res += int.to_bytes(cob[pos])
-        pos +=1
-    return cob[start:pos]
+	start = pos
+	res = b''
+	while cob[pos]!= 0:
+		#print(cob[pos])
+		#res += int.to_bytes(cob[pos])
+		pos +=1
+	return cob[start:pos]
 
 def get_uint(cob, pos):
-    return struct.unpack(pf%1, cob[pos:pos+4])[0]
+	return struct.unpack(pf%1, cob[pos:pos+4])[0]
 
 def decompile(fname):
-    cobf = open(fname,'rb').read()
-    offset = 0
-    header = struct.unpack(cob_file.PACK_FORMAT%(len(cob_file.COB_HEADER_FIELDS)), cobf[0:4*len(hf)])
-    print (header)
-    hd = {}
-    for i in zip(hf, header):
-        print (i)
-        hd[i[0]] = i[1]
+	cobf = open(fname,'rb').read()
+	offset = 0
+	header = struct.unpack(cob_file.PACK_FORMAT%(len(cob_file.COB_HEADER_FIELDS)), cobf[0:4*len(hf)])
+	print (header)
+	hd = {}
+	for i in zip(hf, header):
+		print (i)
+		hd[i[0]] = i[1]
 
-    NumberOfPieces = hd["NumberOfPieces"]
-    OffsetToPieceNameOffsetArray = hd['OffsetToPieceNameOffsetArray']
-    pieces = []
-    for i in range(NumberOfPieces):
-        offset = get_uint(cobf, OffsetToPieceNameOffsetArray + 4*i)
-        pieces.append(get_name(cobf,offset))
-    print (pieces)
-    scripts = [get_name(cobf, get_uint(cobf, hd['OffsetToScriptNameOffsetArray'] + 4*i)) for i in range (hd["NumberOfScripts"])]
-    print (scripts)
-    scriptcode = [get_uint(cobf, 4*len(hf) + 4*i) for i in range(hd["TotalScriptLen"])]
-    scriptoffsets = [get_uint(cobf, hd["OffsetToScriptCodeIndexArray"] + 4*i) for i in range(hd["NumberOfScripts"])]
-    print(scriptoffsets)
-
-    cmd = ''
-    for i, op in enumerate(scriptcode[0:599]):
-        if op in rop:
-            print(cmd)
-            cmd = '%6x %s'%(i, rop[op])
-        
-            #print (op,rop[op])
-        else:
-            cmd += ' ' + str(op)
+	NumberOfPieces = hd["NumberOfPieces"]
+	OffsetToPieceNameOffsetArray = hd['OffsetToPieceNameOffsetArray']
+	pieces = []
+	for i in range(NumberOfPieces):
+		offset = get_uint(cobf, OffsetToPieceNameOffsetArray + 4*i)
+		pieces.append(get_name(cobf,offset))
+	print (pieces)
+	scripts = [get_name(cobf, get_uint(cobf, hd['OffsetToScriptNameOffsetArray'] + 4*i)) for i in range (hd["NumberOfScripts"])]
+	print (scripts)
+	scriptcode = [get_uint(cobf, 4*len(hf) + 4*i) for i in range(hd["TotalScriptLen"])]
+	scriptoffsets = [get_uint(cobf, hd["OffsetToScriptCodeIndexArray"] + 4*i) for i in range(hd["NumberOfScripts"])]
+	print(scriptoffsets)
 
 
-decompile("units/armcrus.cob")
+	cmd = []
+	opcnt = 0
+	opname = ""
+
+	decomp = []
+	for i, scriptname in enumerate(scripts):
+		decomp.append(str(scriptname))
+		startpos = scriptoffsets[i]
+		endpos = hd["TotalScriptLen"]
+		if i+1 < len(scriptoffsets):
+			endpos = scriptoffsets[i+1] 
+		for offset in range(startpos, endpos ):
+			op = scriptcode[offset]
+			
+			#for j, op in enumerate(scriptcode[0:hd["TotalScriptLen"]]):
+			if op in rop:
+				
+				if opname not in opargcnt:
+					opargcnt[opname] = {}
+				if opcnt not in opargcnt[opname]:
+					opargcnt[opname][opcnt] = 0
+				opargcnt[opname][opcnt] += 1
+
+				opname = rop[op]
+				#print(cmd)
+				decomp.append(cmd)
+				cmd = ['\\* 0x%06x *\\'% offset, opname]
+				opcnt = 0
+				
+			else:
+				opcnt+=1
+				cmd += str(op)
+	#print(decomp)
+	return decomp
+if __name__ == "__main__":
+	path = 'N:/BARScriptCompiler/Units/'
+	ipairs = {}
+	for filename in os.listdir(path):
+		if filename.lower().endswith(".cob"):	
+			print (path+filename)
+			res = decompile(path + filename)	
+			for i in range(0,len(res)-1):
+				op1 = res[i]
+				op2 = res[i+1]
+				if len(op1) >= 2 and len(op2)>=2:
+					order = f'{op1[1]}->{op2[1]}'
+					if order not in ipairs:
+						ipairs[order] = 0
+					ipairs[order] += 1
+			#print ('\n'.join(res))
+	for op, cnts in opargcnt.items():
+		print(op, cnts)
+	for op, _ in OPCODES.items():
+		if op not in opargcnt:
+			print(f"{op} was never seen")
+			continue
+		cnts = opargcnt[op]
+		if len(cnts) == 1:
+			print(f"{op} count is {list(cnts.keys())[0]}")
+		else:
+			print(f"{op} has more than one call kind:")
+	print("Pairs:")
+	for i in sorted( list(ipairs.items()), key = lambda x:x[1], reverse=True):
+		print (i)
