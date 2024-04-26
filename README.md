@@ -11,29 +11,15 @@ Can compile entire directories of BOS files.
 
 Note that the pcpp preprocessor allows for very extensive customization and modularization
 
-
-## Setup Windows Notepad++
-- Download this repo as zip
-- Install Notepad++
-- Install the NPPexec plugin for Notepad++ from the Plugins->Plugins Admin menu
-- Hit `F6` to set up the compiler
-- Set up the nppexec script with:
-
-```
-npp_save
-"C:\BARScriptCompiler\BARScriptCompiler.exe" "$(FULL_CURRENT_PATH)"
-```
-
-![image](https://github.com/beyond-all-reason/BARScriptCompiler/assets/109391/cebc1d2e-0405-4106-9879-fb6efee55a5a)
-
-
-- hit `CTRL + F6` to compile it
-
 ## Setup for VSCode
 
-- From the Terminal->Configure Default Build task create a new build task for BARScriptCompiler
+- Select the menu 'Terminal->Configure Tasks...'
+- Scroll to the bottom, select `Create tasks.json file from template`
+- Select `Others`
+- Paste the snippet below into the tasks.json file
+- Edit the path to `BARScriptCompiler.exe`
+- Hit `ctrl-shift-B` to compile any .bos file
 
-Use the `tasks.json` style to launch the compiler:
 ```
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
@@ -57,6 +43,25 @@ Use the `tasks.json` style to launch the compiler:
     ]
 }
 ```
+
+## Setup Windows Notepad++
+- Download this repo as zip
+- Install Notepad++
+- Install the NPPexec plugin for Notepad++ from the Plugins->Plugins Admin menu
+- Hit `F6` to set up the compiler
+- Set up the nppexec script with:
+
+```
+npp_save
+"C:\BARScriptCompiler\BARScriptCompiler.exe" "$(FULL_CURRENT_PATH)"
+```
+
+![image](https://github.com/beyond-all-reason/BARScriptCompiler/assets/109391/cebc1d2e-0405-4106-9879-fb6efee55a5a)
+
+
+- hit `CTRL + F6` to compile it
+
+
 
 
 ## Setup Linux
