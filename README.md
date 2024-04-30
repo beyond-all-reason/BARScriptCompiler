@@ -49,7 +49,7 @@ Note that the pcpp preprocessor allows for very extensive customization and modu
 - Install Notepad++
 - Install the NPPexec plugin for Notepad++ from the Plugins->Plugins Admin menu
 - Hit `F6` to set up the compiler
-- Set up the nppexec script with:
+- Set up the nppexec script with (NOTE: only change the path to the exe, dont change the `"$(FULL_CURRENT_PATH)"` part, as that is needed so np++ knows the path to the file) :
 
 ```
 npp_save
