@@ -1452,7 +1452,9 @@ if not args.nopcpp:
 			return self.output.getvalue()
 
 		def on_error(self, file, line, msg):
-			print(file, line, msg)
+			print("File: " + file)
+			print("Line number: " + str(line))
+			print("Error: " + msg)
 			sys.exit(1)
 			return super().on_error(file, line, msg)()
 
