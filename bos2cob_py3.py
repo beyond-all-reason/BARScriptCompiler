@@ -1452,7 +1452,7 @@ if not args.nopcpp:
 			return self.output.getvalue()
 
 		def on_error(self, file, line, msg):
-			print(f"File:{file} Line:{line} Error:{msg}")
+			print(f"Preprocessor error in file: {file} at line: {line} Error: {msg}")
 			sys.exit(1)
 			return super().on_error(file, line, msg)()
 
