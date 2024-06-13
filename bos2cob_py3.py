@@ -15,6 +15,8 @@ warnings.filterwarnings('ignore', 'write lextab module')
 from io import StringIO
 import pcpp 
 
+version = "1.0"
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
@@ -1474,7 +1476,7 @@ def main(path, output_path = None):
 		if output_path is None:
 			output_path = "%s.%s" % (os.path.splitext(input_path)[0], COB_EXT)
 	for bos_file_path in files:
-		print ("Preprocessing %s" % (bos_file_path,))
+		print ("BARScriptCompiler %s Preprocessing %s" % (version, bos_file_path,))
 		root = Node('root')
 		content = open(bos_file_path, 'r').read() # why rb binary?
 		if not args.nopcpp:
