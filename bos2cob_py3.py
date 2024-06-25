@@ -15,8 +15,7 @@ warnings.filterwarnings('ignore', 'write lextab module')
 from io import StringIO
 import pcpp 
 
-version = "1.0"
-
+version = "1.1"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
@@ -25,7 +24,7 @@ parser.add_argument("--nopcpp", action='store_true', help = "Fallback to builtin
 parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed syntax tree into a _initial.ast file")
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
-parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos")
+parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos", default=  "", nargs='?')
 
 args = parser.parse_args()
 #args.filename = "C:/Users/Peti/Documents/My Games/Spring/games/Beyond-All-Reason.sdd/scripts/Raptors/raptora2.bos"
@@ -812,11 +811,22 @@ class Compiler(object):
 		if len(node.get_children()) == 0:
 			return
 
+		local_var_name = node[0].get_text()
+		if local_var_name in self._static_vars:
+			raise Exception('Static-var named "%s" already exists. You cannot reuse the same name as local variable or function argument!' % (local_var_name))
+		if local_var_name in self._local_vars:
+			raise Exception('Local-var named "%s" already exists. Multiple definitions are not allowed!' % (local_var_name))
+		
 		self._local_vars.append(node[0].get_text())
 		self._code += OPCODES['CREATE_LOCAL_VAR']
 
 		for comma_var in node.get_children()[1:]:
 			if comma_var.get_type() == 'commaVar':
+				local_var_name = comma_var[1].get_text()
+				if local_var_name in self._static_vars:
+					raise Exception('Static-var named "%s" already exists. You cannot reuse the same name as local variable!' % (local_var_name))
+				if local_var_name in self._local_vars:
+					raise Exception('Local-var named "%s" already exists. Multiple definitions are not allowed!' % (local_var_name))
 				self._local_vars.append(comma_var[1].get_text())
 				self._code += OPCODES['CREATE_LOCAL_VAR']
 
@@ -1581,5 +1591,5 @@ if __name__ == '__main__':
 		parser.print_help()
 		print ("Specify a path to a .%s file, or a path to a directory containing .%s files"%(BOS_EXT,BOS_EXT))
 		
-		#main("raptorscopy/raptor_worm_m.bos")
+		#main("C:/Users/Peti/Documents/My Games/Spring/games/Beyond-All-Reason.sdd/scripts/units/armadvsol_clean.bos")
 		#main("unitscopy/")
