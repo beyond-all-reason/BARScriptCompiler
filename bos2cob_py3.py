@@ -216,6 +216,7 @@ OPS = {
 	'%' : OPCODES['MOD'],
 	'&' : OPCODES['BITWISE_AND'],
 	'|' : OPCODES['BITWISE_OR'],
+	'^' : OPCODES['BITWISE_XOR'],
 	'<' : OPCODES['SET_LESS'],
 	'>' : OPCODES['SET_GREATER'],
 	'==' : OPCODES['SET_EQUAL'],
@@ -224,10 +225,13 @@ OPS = {
 	'!=' : OPCODES['SET_NOT_EQUAL'],
 	'&&' : OPCODES['LOGICAL_AND'],
 	'||' : OPCODES['LOGICAL_OR'],
+	'^^' : OPCODES['LOGICAL_OR'],
 	'AND' : OPCODES['LOGICAL_AND'],
 	'and' : OPCODES['LOGICAL_AND'],
 	'OR' : OPCODES['LOGICAL_OR'],
 	'or' : OPCODES['LOGICAL_OR'],
+	'XOR' : OPCODES['LOGICAL_XOR'],
+	'xor' : OPCODES['LOGICAL_XOR'],
 }
 
 OPS_PYEVAL = {
@@ -237,10 +241,11 @@ OPS_PYEVAL = {
 	"/" : "/",
 	"&" : "&&",
 	"|" : "||",
+	"^" : "^^",
 	"%" : "%",
 }
 
-OPS_PYEVAL_PRECEDENCE = ["%", "*", "/", "+", "-", "|", "&"]
+OPS_PYEVAL_PRECEDENCE = ["%", "*", "/", "+", "-", "|", "&", "^"]
 
 OPS_PRECEDENCE = {
 	'*' : 1,
@@ -256,13 +261,17 @@ OPS_PRECEDENCE = {
 	'==' : 4,
 	'!=' : 4,
 	'&' : 5,
-	'|' : 6,
-	'&&' : 7,
-	'AND' : 7,
-	'and' : 7,
-	'||' : 8,
-	'OR' : 8,
-	'or' : 8,
+	'^' : 6,
+	'|' : 7,
+	'&&' : 8,
+	'AND' : 8,
+	'and' : 8,
+	'||' : 9,
+	'OR' : 9,
+	'or' : 9,
+	'^^' : 10,
+	'XOR' : 10,
+	'xor' : 10,
 }
 
 UNARY_OPS = {
@@ -543,8 +552,8 @@ ELEMENTS_DICT = {
 				'hide', 'show', 'set', 'get', 'explode', 'signal', 'mask', 'emit', 'sfx', 'type', 'sleep',
 				'attach', 'drop', 'unit', 'rand', 'unknown_unit_value',
 				'dont', 'cache', 'shade', 'shadow', 'play', 'sound'),
-	'symbol' : ('{', '}', '(', ')', '[', ']', ',', ';', '+', '-', '*', '/', '%', '&', '|',
-				'<', '>', '=', '!', 'or', 'and', 'not'),
+	'symbol' : ('{', '}', '(', ')', '[', ']', ',', ';', '+', '-', '*', '/', '%', '&', '|', '^',
+				'<', '>', '=', '!', 'xor', 'or', 'and', 'not'),
 }
 
 ATOMS_DICT = {
@@ -661,8 +670,8 @@ PARSER_DICT = {
 	# '_unitValue' : (('_expression',),),
 	'_rand' : (('rand', '(' , '_expression', ',', '_expression', ')',),),
 	'_opterm' : (('_op', '_term',),),
-	'_op' : (('=', '=',), ('<' , '=',), ('>', '=',), ('!', '=',), ('|', '|',), ('&', '&',), ('+',), ('-',), ('*',), ('/',), ('%',), ('&',), ('|',), ('<',), ('>',), ('OR',), ('AND',),),
 	'_unaryOp' : (('!',), ('NOT',),),
+	'_op' : (('=', '=',), ('<' , '=',), ('>', '=',), ('!', '=',), ('^', '^',), ('|', '|',), ('&', '&',), ('+',), ('-',), ('*',), ('/',), ('%',), ('&',), ('|',), ('^',), ('<',), ('>',), ('XOR',), ('OR',), ('AND',),),
 	'_constant' : (('<', '_signedFloatConstant', '>',), ('[', '_signedFloatConstant', ']',), ('_signedFloatConstant',), ('_signedIntegerConstant',), ),
 	'_signedFloatConstant' : (('-', '_floatConstant',), ('_floatConstant',),),
 	'_signedIntegerConstant' : (('-', '_integerConstant',), ('_integerConstant',),),
@@ -1175,7 +1184,7 @@ def try_parse(pump, node, block_type):
 
 
 def token_generator(code):
-	symbol_delimiters = ['{', '}', '[', ']', '(', ')', ' ', '&', '|', '+', '-', '*', '/', '%', ',', ';', '<', '>', '=', '!', '#', '\t', '\r', '\n', '\\']
+	symbol_delimiters = ['{', '}', '[', ']', '(', ')', ' ', '&', '|', '^', '+', '-', '*', '/', '%', ',', ';', '<', '>', '=', '!', '#', '\t', '\r', '\n', '\\']
 	is_line_comment = False
 	is_multi_line_comment = False
 	is_in_quotation = False
