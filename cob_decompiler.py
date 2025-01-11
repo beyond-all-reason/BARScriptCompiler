@@ -168,12 +168,12 @@ def decompile(fname):
 	#print(decomp)
 	return decomp
 if __name__ == "__main__":
-	path = 'N:/BARScriptCompiler/Units/'
+	path = os.getcwd()
 	ipairs = {}
 	for filename in os.listdir(path):
 		if filename.lower().endswith(".cob"):	
 			print (path+filename)
-			res = decompile(path + filename)	
+			res = decompile(os.path.join(path ,filename))	
 			for i in range(0,len(res)-1):
 				op1 = res[i]
 				op2 = res[i+1]
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 					if order not in ipairs:
 						ipairs[order] = 0
 					ipairs[order] += 1
-			#print ('\n'.join(res))
+			print ('\n'.join([str(r) for r in res]))
 	for op, cnts in opargcnt.items():
 		print(op, cnts)
 	for op, _ in OPCODES.items():
