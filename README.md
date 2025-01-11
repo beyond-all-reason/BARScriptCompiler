@@ -13,6 +13,7 @@ Note that the pcpp preprocessor allows for very extensive customization and modu
 
 ## Setup for VSCode
 
+- Install the Bos language support VSCode Extension by Chesiren from: https://github.com/chesiren/bos-language-support
 - Select the menu 'Terminal->Configure Tasks...'
 - Scroll to the bottom, select `Create tasks.json file from template`
 - Select `Others`
