@@ -91,7 +91,7 @@ parser.add_argument("filename", type = str, help= "A bos file to compile, or a d
     - Because the current packedXZ format packs the units position into two 16 bit integers, this precision is absolulyte not enough!
 - [ ] Parametric move and turn commands, use variables from the stack instead of constants in the COB script
     - Because sometimes, you want to be able to turn a piece based on a a variable and dont want to write a huge if statement. E.g.:
-    - we would want: `move (barrel0 + VARIABLE) along x-axis [1] speed [1];
+    - we would want: `move (barrel0 + VARIABLE) along x-axis [1] speed [1];`
     - instead of :
 	```c
 		if (X == 0 ) move barrel0 along x-axis [1] speed [1];
@@ -100,7 +100,7 @@ parser.add_argument("filename", type = str, help= "A bos file to compile, or a d
 	```
 - [ ] Scale command
     - Due to the new skeletal and mesh animations, move and turn are no longer enough to describe animations
-    - e.g. `scale torso along x-axis [2.0] speed [2.0];
+    - e.g. `scale torso along x-axis [2.0] speed [2.0];`
 	
 - [ ] Thread safety indicator, to allow MT'ing of ticks
     - Engine random isnt MT safe, use and see Linear Feedback Shift register in random.h
@@ -109,6 +109,9 @@ parser.add_argument("filename", type = str, help= "A bos file to compile, or a d
 - [ ] Lua-less batched sendtounsynced
 - [ ] Array support
 - [ ] Constant acceleration
+- [ ] Multithreaded execution of COB scripts on engine, see the wonderful diagram here:
+
+![image](https://github.com/user-attachments/assets/0998e2f9-f7f8-4068-902c-3a3a0f3f0ae4)
 
 
 ## Known improvements:
