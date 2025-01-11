@@ -86,10 +86,26 @@ parser.add_argument("filename", type = str, help= "A bos file to compile, or a d
 
 - [X] Improve the language to use chars as opcodes for better interpreter switch generation
 - [ ] First-class ABS, MAX, MIN, SIGN, SINE, DELTAHEADING etc functions for speed.
+    - E.g. see https://github.com/beyond-all-reason/spring/commit/acc3a294b0d9db28a16fea75858c80110ede4d6b#diff-302c5df9876df8e098af4798263206e886f90b827ccab2e56f3f2da690eaf256R705 
 - [ ] New GET statements for unit_x, unit_z
-- [ ] Parametric move and turn commands
+    - Because the current packedXZ format packs the units position into two 16 bit integers, this precision is absolulyte not enough!
+- [ ] Parametric move and turn commands, use variables from the stack instead of constants in the COB script
+    - Because sometimes, you want to be able to turn a piece based on a a variable and dont want to write a huge if statement. E.g.:
+    - we would want: `move (barrel0 + VARIABLE) along x-axis [1] speed [1];
+    - instead of :
+	```c
+		if (X == 0 ) move barrel0 along x-axis [1] speed [1];
+		if (X == 1 ) move barrel1 along x-axis [1] speed [1];
+		if (X == 2 ) move barrel2 along x-axis [1] speed [1];
+	```
 - [ ] Scale command
+    - Due to the new skeletal and mesh animations, move and turn are no longer enough to describe animations
+    - e.g. `scale torso along x-axis [2.0] speed [2.0];
+	
 - [ ] Thread safety indicator, to allow MT'ing of ticks
+    - Engine random isnt MT safe, use and see Linear Feedback Shift register in random.h
+    - Doing things like getting the unitID's of _other_ units is not thread safe
+    - But the compiler can know ahead of time of all of the 
 - [ ] Lua-less batched sendtounsynced
 - [ ] Array support
 - [ ] Constant acceleration
