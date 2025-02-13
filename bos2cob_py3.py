@@ -1450,10 +1450,14 @@ def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN
 
 if not args.nopcpp:
 	from io import StringIO
+	from pcpp import lextab
+	from pcpp.ply.ply import lex
+
 
 	# Custom Preprocessor class inheriting from pcpp.Preprocessor
 	class MyPreprocessor(pcpp.Preprocessor):
 		def __init__(self, input_string):
+			self.lexer = lex.lex(object=pcpp.parser, lextab=lextab, optimize=True)
 			super(MyPreprocessor, self).__init__()
 			# Use StringIO to simulate file input and output
 			self.line_directive = None
