@@ -63,13 +63,16 @@ npp_save
 - hit `CTRL + F6` to compile it
 
 
-
-
 ## Setup Linux
 
 - Clone this repo
 - `pip install pcpp`
 - `python bos2cob_py3.py bosfile.bos`
+
+## Quickly reload COB Scripts for units in Beyond All Reason
+
+**Enable the CobReload widget from F11 menu**
+**Hit CTRL + R to reload cob scripts for all selected units**
 
 
 ## Command line args:
