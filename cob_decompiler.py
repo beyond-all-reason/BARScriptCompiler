@@ -169,21 +169,23 @@ def decompile(fname):
 	return decomp
 
 
-def get_filenames():
+def get_path():
 	if len(sys.argv) > 1:
 		path = sys.argv[1]
 	else:
 		path = os.getcwd()
+	return path
 
+def get_filenames(path):
 	if os.path.isdir(path):
 		filenames = os.listdir(path)
 	else:
 		filenames = [path]
-	return path, filenames
-
+	return filenames
 
 if __name__ == "__main__":
-	path, filenames = get_filenames()
+	path = get_path()
+	filenames = get_filenames(path)
 	ipairs = {}
 	for filename in filenames:
 		if filename.lower().endswith(".cob"):	
