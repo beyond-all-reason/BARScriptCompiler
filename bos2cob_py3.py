@@ -910,15 +910,11 @@ class Compiler(object):
 				func_name = child_node.get_text()
 				func_index = index(self._functions, func_name)
 				if func_index > -1:
-					raise Exception("Function reference with actual code: %s" % (func_name,))
+					raise Exception("Function reference with actual code (remove empty method): %s" % (func_name,))
 				else:
 					self._functions.append(func_name)
-					#self._functions_code[func_name] = OPCODES['PUSH_CONSTANT'] + get_num(0) + OPCODES['SIGNATURE_LUA']
 					self._functions_code[func_name] = OPCODES['SIGNATURE_LUA']
 					arguments.append(len(self._functions)-1)
-					#raise Exception("Function not found: %s" % (func_name,))
-				else:
-					arguments.append(func_index)
 			elif child_node.get_type() == 'funcNameOptional':
 				# optional function, allows the compiler to generate it automatically with 'return 0' body,
 				# so it doesn't need to be awkwardly included in cob code.
