@@ -168,17 +168,19 @@ def decompile(fname):
 	#print(decomp)
 	return decomp
 
+
 def get_filenames():
 	if len(sys.argv) > 1:
 		path = sys.argv[1]
-		if os.path.isdir(path):
-			filenames = os.listdir(path)
-		else:
-			filenames = [path]
 	else:
 		path = os.getcwd()
+
+	if os.path.isdir(path):
 		filenames = os.listdir(path)
+	else:
+		filenames = [path]
 	return path, filenames
+
 
 if __name__ == "__main__":
 	path, filenames = get_filenames()
