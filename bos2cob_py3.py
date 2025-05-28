@@ -924,7 +924,7 @@ class Compiler(object):
 				# so it doesn't need to be awkwardly included in cob code.
 				func_name = child_node.get_text()
 				func_index = index(self._functions, func_name)
-				if func_index < 0:
+				if func_index < 0 and func_name.startswith('lua_'):
 					self._functions.append(func_name)
 					self._functions_code[func_name] = OPCODES['PUSH_CONSTANT'] + get_num(0) + OPCODES['SIGNATURE_LUA']
 					arguments.append(len(self._functions)-1)
