@@ -1,7 +1,8 @@
 #import bos2cob_py3
 import cob_file
 import struct
-import os 
+import os
+import sys
 
 pf = cob_file.PACK_FORMAT
 hf = cob_file.COB_HEADER_FIELDS
@@ -88,14 +89,13 @@ for k,v in OPCODES.items():
 	rop[v] = k
 
 defines = {}
-for line in open('recoil_common_includes.h','r').readlines():
-	if '#define ' in line:
-		line = line.partition('#define ')[2].split(None, 1)
-		print (line)
-		if (len(line) > 1):
-			defines[line[0]] = line[1]
-
-
+if os.path.exists('recoil_common_includes.h'):
+	for line in open('recoil_common_includes.h','r').readlines():
+		if '#define ' in line:
+			line = line.partition('#define ')[2].split(None, 1)
+			print (line)
+			if (len(line) > 1):
+				defines[line[0]] = line[1]
 
 def get_name(cob, pos):
 	start = pos
@@ -167,10 +167,27 @@ def decompile(fname):
 				cmd += str(op)
 	#print(decomp)
 	return decomp
+
+
+def get_path():
+	if len(sys.argv) > 1:
+		path = sys.argv[1]
+	else:
+		path = os.getcwd()
+	return path
+
+def get_filenames(path):
+	if os.path.isdir(path):
+		filenames = os.listdir(path)
+	else:
+		filenames = [path]
+	return filenames
+
 if __name__ == "__main__":
-	path = os.getcwd()
+	path = get_path()
+	filenames = get_filenames(path)
 	ipairs = {}
-	for filename in os.listdir(path):
+	for filename in filenames:
 		if filename.lower().endswith(".cob"):	
 			print (path+filename)
 			res = decompile(os.path.join(path ,filename))	
