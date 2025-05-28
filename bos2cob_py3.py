@@ -88,6 +88,7 @@ OPCODES = {
 	'CALL_SCRIPT'     : 0x10062000,
 	'REAL_CALL'       : 0x10062001,
 	'LUA_CALL'        : 0x10062002,
+	'DEFER'           : 0x10062004,
 	'JUMP'            : 0x10064000,
 	'RETURN'          : 0x10065000,
 	'JUMP_NOT_EQUAL'  : 0x10066000,
@@ -100,6 +101,9 @@ OPCODES = {
 	'SET'         : 0x10082000,
 	'ATTACH_UNIT' : 0x10083000,
 	'DROP_UNIT'   : 0x10084000,
+
+	# special opcodes to signal lua functions
+	'SIGNATURE_LUA'   : 0x10090000,
 }
 
 if args.shortopcodes:
@@ -291,6 +295,7 @@ PRINTED_NODES = {'keyword', 'symbol', 'integerConstant', 'floatConstant', 'ident
 				 'spinStatement',
 				 'stopSpinStatement',
 				 'turnStatement',
+				 'deferStatement',
 				 'moveStatement',
 				 'waitForTurnStatement',
 				 'waitForMoveStatement',
@@ -547,7 +552,7 @@ def parse_float(pump, node):
 
 ELEMENTS_DICT = {
 	'keyword' : ('piece', 'static', 'var', 'while', 'for', 'if', 'else', 'return',
-				'call', 'start', 'script', 'spin', 'stop', 'turn', 'move', 'wait',
+				'call', 'start', 'script', 'spin', 'stop', 'turn', 'defer', 'move', 'wait',
 				'from', 'to', 'along', 'around', 'x', 'y', 'z', 'axis', 'speed', 'now', 'accelerate', 'decelerate',
 				'hide', 'show', 'set', 'get', 'explode', 'signal', 'mask', 'emit', 'sfx', 'type', 'sleep',
 				'attach', 'drop', 'unit', 'rand', 'unknown_unit_value',
@@ -574,6 +579,8 @@ PARSER_DICT = {
 	'_varName' : (('_identifier',),),
 	'_funcDec' : (('_funcName', '(', '_argumentList', ')', '_statementBlock',),),
 	'_funcName' : (('_identifier',),),
+	'_funcNameOptional' : (('_identifier',),),
+	'_funcNameReference' : (('_identifier',),),
 	'_argumentList' : (('_arguments?',),),
 	'_arguments' : (('_varName', '_commaVar~',),),
 
@@ -593,6 +600,7 @@ PARSER_DICT = {
 								('_spinStatement',),
 								('_stopSpinStatement',),
 								('_turnStatement',),
+								('_deferStatement',),
 								('_moveStatement',),
 								('_waitForTurnStatement',),
 								('_waitForMoveStatement',),
@@ -630,6 +638,7 @@ PARSER_DICT = {
 	'_optionalDeceleration' : (('_deceleration?',),),
 	'_deceleration' : (('decelerate', '_expression',),),
 	'_turnStatement' : (('turn', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
+	'_deferStatement' : (('defer', '_funcNameReference', '(', '_expressionList', ')',),),
 	'_moveStatement' : (('move', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
 	'_speedNow' : (('now',), ('speed', '_expression',),),
 
@@ -896,6 +905,31 @@ class Compiler(object):
 				if piece_index < 0:
 					raise Exception('Piece not found: %s' % (piece_name,))
 				arguments.append(piece_index)
+			elif child_node.get_type() == 'funcNameReference':
+				# reference function should not be actually included in cob code.
+				func_name = child_node.get_text()
+				func_index = index(self._functions, func_name)
+				if func_index > -1:
+					raise Exception("Function reference with actual code: %s" % (func_name,))
+				else:
+					self._functions.append(func_name)
+					#self._functions_code[func_name] = OPCODES['PUSH_CONSTANT'] + get_num(0) + OPCODES['SIGNATURE_LUA']
+					self._functions_code[func_name] = OPCODES['SIGNATURE_LUA']
+					arguments.append(len(self._functions)-1)
+					#raise Exception("Function not found: %s" % (func_name,))
+				else:
+					arguments.append(func_index)
+			elif child_node.get_type() == 'funcNameOptional':
+				# optional function, allows the compiler to generate it automatically with 'return 0' body,
+				# so it doesn't need to be awkwardly included in cob code.
+				func_name = child_node.get_text()
+				func_index = index(self._functions, func_name)
+				if func_index < 0:
+					self._functions.append(func_name)
+					self._functions_code[func_name] = OPCODES['PUSH_CONSTANT'] + get_num(0) + OPCODES['SIGNATURE_LUA']
+					arguments.append(len(self._functions)-1)
+				else:
+					arguments.append(func_index)
 			elif child_node.get_type() == 'funcName':
 				func_name = child_node.get_text()
 				func_index = index(self._functions, func_name)
