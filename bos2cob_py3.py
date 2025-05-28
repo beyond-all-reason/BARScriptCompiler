@@ -175,12 +175,13 @@ if args.shortopcodes:
 "START_SCRIPT"            : 0x61,
 "CALL_SCRIPT"             : 0x62, 
 "REAL_CALL"        : 0x63, 
-"CALL_LUA"         : 0x69, 
 "JUMP"             : 0x64,
 "RETURN"           : 0x65,
 "JUMP_NOT_EQUAL"   : 0x66,
 "SIGNAL"           : 0x67,
 "SET_SIGNAL_MASK"  : 0x68,
+"CALL_LUA"         : 0x69, 
+"DEFER"            : 0x70, 
 
 
 "EXPLODE"    : 0x71,
@@ -190,6 +191,7 @@ if args.shortopcodes:
 "SET"     : 0x82,
 "ATTACH_UNIT"  : 0x83,
 "DROP_UNIT"    : 0x84,
+'SIGNATURE_LUA'   : 0x90,
 	}
 	#for i in range(256):
 	#	if i not in OPCODES.values():
