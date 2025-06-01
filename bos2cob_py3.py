@@ -88,7 +88,7 @@ OPCODES = {
 	'CALL_SCRIPT'     : 0x10062000,
 	'REAL_CALL'       : 0x10062001,
 	'CALL_LUA'        : 0x10062002,
-	'DEFER'           : 0x10062004,
+	'BATCH_LUA'       : 0x10062004,
 	'JUMP'            : 0x10064000,
 	'RETURN'          : 0x10065000,
 	'JUMP_NOT_EQUAL'  : 0x10066000,
@@ -181,7 +181,7 @@ if args.shortopcodes:
 "SIGNAL"           : 0x67,
 "SET_SIGNAL_MASK"  : 0x68,
 "CALL_LUA"         : 0x69, 
-"DEFER"            : 0x70, 
+"BATCH_LUA"        : 0x70, 
 
 
 "EXPLODE"    : 0x71,
@@ -298,7 +298,7 @@ PRINTED_NODES = {'keyword', 'symbol', 'integerConstant', 'floatConstant', 'ident
 				 'spinStatement',
 				 'stopSpinStatement',
 				 'turnStatement',
-				 'deferStatement',
+				 'batchLuaStatement',
 				 'moveStatement',
 				 'waitForTurnStatement',
 				 'waitForMoveStatement',
@@ -555,7 +555,7 @@ def parse_float(pump, node):
 
 ELEMENTS_DICT = {
 	'keyword' : ('piece', 'static', 'var', 'while', 'for', 'if', 'else', 'return',
-				'call', 'start', 'script', 'spin', 'stop', 'turn', 'defer', 'move', 'wait',
+				'call', 'start', 'script', 'spin', 'stop', 'turn', 'batch', 'move', 'wait',
 				'from', 'to', 'along', 'around', 'x', 'y', 'z', 'axis', 'speed', 'now', 'accelerate', 'decelerate',
 				'hide', 'show', 'set', 'get', 'explode', 'signal', 'mask', 'emit', 'sfx', 'type', 'sleep',
 				'attach', 'drop', 'unit', 'rand', 'unknown_unit_value',
@@ -604,7 +604,7 @@ PARSER_DICT = {
 								('_spinStatement',),
 								('_stopSpinStatement',),
 								('_turnStatement',),
-								('_deferStatement',),
+								('_batchLuaStatement',),
 								('_moveStatement',),
 								('_waitForTurnStatement',),
 								('_waitForMoveStatement',),
@@ -643,7 +643,7 @@ PARSER_DICT = {
 	'_optionalDeceleration' : (('_deceleration?',),),
 	'_deceleration' : (('decelerate', '_expression',),),
 	'_turnStatement' : (('turn', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
-	'_deferStatement' : (('defer', '_funcNameReference', '(', '_expressionList', ')',),),
+	'_batchLuaStatement' : (('batch', '-', 'lua', '_funcNameReference', '(', '_expressionList', ')',),),
 	'_moveStatement' : (('move', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
 	'_speedNow' : (('now',), ('speed', '_expression',),),
 
@@ -930,7 +930,7 @@ class Compiler(object):
 				# Optional function, allows the compiler to generate it automatically with 'return 0' body,
 				# so it doesn't need to be awkwardly included in cob code.
 				#
-				# For backwards compatibility, should use 'call-lua' (synced) or 'defer' (unsynced, deferred and batched) for
+				# For backwards compatibility, should use 'call-lua' (synced) or 'batch-lua' (unsynced, deferred and batched) for
 				# lua calls from now on.
 				func_name = child_node.get_text()
 				func_index = index(self._functions, func_name)
