@@ -34,6 +34,7 @@ ANGULAR_SCALE = 182
 OPCODES = {
 	'MOVE'        : 0x10001000,
 	'TURN'        : 0x10002000,
+	'SCALE'       : 0x100A0000,
 	'SPIN'        : 0x10003000,
 	'STOP_SPIN'   : 0x10004000,
 	'SHOW'        : 0x10005000,
@@ -42,6 +43,7 @@ OPCODES = {
 	'DONT_CACHE'  : 0x10008000,
 	'MOVE_NOW'    : 0x1000B000,
 	'TURN_NOW'    : 0x1000C000,
+	'SCALE_NOW'   : 0x100A1000,
 	'SHADE'       : 0x1000D000,
 	'DONT_SHADE'  : 0x1000E000,
 	'DONT_SHADOW' : 0x1000E000,
@@ -49,6 +51,7 @@ OPCODES = {
 
 	'WAIT_FOR_TURN'  : 0x10011000,
 	'WAIT_FOR_MOVE'  : 0x10012000,
+	'WAIT_FOR_SCALE' : 0x100A2000,
 	'SLEEP'          : 0x10013000,
 
 	'PUSH_CONSTANT'    : 0x10021001,
@@ -107,6 +110,7 @@ if args.shortopcodes:
 
 "MOVE"        : 0x01,
 "TURN"        : 0x02,
+"SCALE"       : 0x0A,
 "SPIN"        : 0x03,
 "STOP_SPIN"   : 0x04,
 "SHOW"        : 0x05,
@@ -115,12 +119,14 @@ if args.shortopcodes:
 #"DONT_CACHE"  : 0x08,
 "MOVE_NOW"    : 0x0B,
 "TURN_NOW"    : 0x0C,
+"SCALE_NOW"   : 0x10,
 #"SHADE"       : 0x0D,
 #"DONT_SHADE"  : 0x0E,
 "EMIT_SFX"    : 0x0F,
 
 "WAIT_FOR_TURN" : 0x11,
 "WAIT_FOR_MOVE" : 0x12,
+"WAIT_FOR_SCALE" : 0x14,
 "SLEEP"     : 0x13,
 
 
@@ -292,8 +298,10 @@ PRINTED_NODES = {'keyword', 'symbol', 'integerConstant', 'floatConstant', 'ident
 				 'stopSpinStatement',
 				 'turnStatement',
 				 'moveStatement',
+				 'scaleStatement',
 				 'waitForTurnStatement',
 				 'waitForMoveStatement',
+				 'waitForScaleStatement',
 				 'emitSfxStatement',
 				 'sleepStatement',
 				 'hideStatement',
@@ -547,7 +555,7 @@ def parse_float(pump, node):
 
 ELEMENTS_DICT = {
 	'keyword' : ('piece', 'static', 'var', 'while', 'for', 'if', 'else', 'return',
-				'call', 'start', 'script', 'spin', 'stop', 'turn', 'move', 'wait',
+				'call', 'start', 'script', 'spin', 'stop', 'turn', 'move', 'scale', 'wait',
 				'from', 'to', 'along', 'around', 'x', 'y', 'z', 'axis', 'speed', 'now', 'accelerate', 'decelerate',
 				'hide', 'show', 'set', 'get', 'explode', 'signal', 'mask', 'emit', 'sfx', 'type', 'sleep',
 				'attach', 'drop', 'unit', 'rand', 'unknown_unit_value',
@@ -594,8 +602,10 @@ PARSER_DICT = {
 								('_stopSpinStatement',),
 								('_turnStatement',),
 								('_moveStatement',),
+							('_scaleStatement',),
 								('_waitForTurnStatement',),
 								('_waitForMoveStatement',),
+							('_waitForScaleStatement',),
 								('_emitSfxStatement',),
 								('_sleepStatement',),
 								('_hideStatement',),
@@ -631,10 +641,12 @@ PARSER_DICT = {
 	'_deceleration' : (('decelerate', '_expression',),),
 	'_turnStatement' : (('turn', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
 	'_moveStatement' : (('move', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
+	'_scaleStatement' : (('scale', '_pieceName', 'to', '_axis', '_expression', '_speedNow',),),
 	'_speedNow' : (('now',), ('speed', '_expression',),),
 
 	'_waitForTurnStatement' : (('wait', '-', 'for', '-', 'turn', '_pieceName', 'around', '_axis',),),
 	'_waitForMoveStatement' : (('wait', '-', 'for', '-', 'move', '_pieceName', 'along', '_axis',),),
+	'_waitForScaleStatement' : (('wait', '-', 'for', '-', 'scale', '_pieceName', 'along', '_axis',),),
 
 	'_emitSfxStatement' : (('emit', '-', 'sfx', '_expression', 'from', '_pieceName',),),
 	'_sleepStatement' : (('sleep', '_expression',),),

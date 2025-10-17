@@ -2,6 +2,7 @@
 // Model interaction
 static constexpr int MOVE       = 0x10001000; = 0x01;
 static constexpr int TURN       = 0x10002000; = 0x02;
+static constexpr int SCALE      = 0x100A0000; = 0x0A; // Added in Recoil
 static constexpr int SPIN       = 0x10003000; = 0x03;
 static constexpr int STOP_SPIN  = 0x10004000; = 0x04;
 static constexpr int SHOW       = 0x10005000; = 0x05;
@@ -10,6 +11,7 @@ static constexpr int CACHE      = 0x10007000; = 0x07;
 static constexpr int DONT_CACHE = 0x10008000; = 0x08;
 static constexpr int MOVE_NOW   = 0x1000B000; = 0x0B;
 static constexpr int TURN_NOW   = 0x1000C000; = 0x0C;
+static constexpr int SCALE_NOW  = 0x100A1000; = 0x10; // Added in Recoil
 static constexpr int SHADE      = 0x1000D000; = 0x0D;
 static constexpr int DONT_SHADE = 0x1000E000; = 0x0E;
 static constexpr int EMIT_SFX   = 0x1000F000; = 0x0F;
@@ -17,6 +19,7 @@ static constexpr int EMIT_SFX   = 0x1000F000; = 0x0F;
 // Blocking operations
 static constexpr int WAIT_TURN  = 0x10011000; = 0x11;
 static constexpr int WAIT_MOVE  = 0x10012000; = 0x12;
+static constexpr int WAIT_SCALE = 0x100A2000; = 0x14; // Added in Recoil
 static constexpr int SLEEP      = 0x10013000; = 0x13;
 
 // Stack manipulation
@@ -81,6 +84,7 @@ static constexpr int DROP   = 0x10084000; = 0x84;
 
 "MOVE"        : 0x01,
 "TURN"        : 0x02,
+"SCALE"       : 0x0A,
 "SPIN"        : 0x03,
 "STOP_SPIN"   : 0x04,
 "SHOW"        : 0x05,
@@ -89,12 +93,14 @@ static constexpr int DROP   = 0x10084000; = 0x84;
 "DONT_CACHE"  : 0x08,
 "MOVE_NOW"    : 0x0B,
 "TURN_NOW"    : 0x0C,
+"SCALE_NOW"   : 0x10,
 "SHADE"       : 0x0D,
 "DONT_SHADE"  : 0x0E,
 "EMIT_SFX"    : 0x0F,
 
 "WAIT_TURN" : 0x11,
 "WAIT_MOVE" : 0x12,
+"WAIT_SCALE" : 0x14,
 "SLEEP"     : 0x13,
 
 
