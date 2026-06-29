@@ -39,14 +39,15 @@ struct RascScriptInfo {
 };
 static_assert(sizeof(RascScriptInfo) == 16, "RascScriptInfo must be 16 bytes");
 
-// Decoded instruction (10 bytes packed).
-// Matches RasOpCodes.h:464-469.
-struct __attribute__((packed)) RascInstr {
+// Decoded instruction (10 bytes packed on disk).
+// Parsed field-by-field on load; this struct is documentation only. Avoid
+// non-portable __attribute__((packed)) so the header compiles under MSVC.
+static constexpr int RASC_DISK_INSTR_SIZE = 10;
+struct RascInstr {
 	uint8_t  op;     // +0  RasOp byte value
 	uint8_t  flags;  // +1  RAS_INSTR_* bitmask
 	int32_t  a;      // +2  first operand / jump target / funcId (LE)
 	int32_t  b;      // +6  second operand / argCount / immediate (LE)
 };
-static_assert(sizeof(RascInstr) == 10, "RascInstr must be 10 bytes");
 
 #endif // RASC_FORMAT_H

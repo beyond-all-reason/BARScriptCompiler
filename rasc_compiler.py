@@ -155,8 +155,8 @@ OP_OPERANDS = {
 	0x25: 1,  # POP_LOCAL_VAR
 	0x26: 1,  # POP_STATIC
 	0x27: 0,  # POP_STACK
-	0x2A: 0,  # PUSH_STATIC_IDX
-	0x2B: 0,  # POP_STATIC_IDX
+	0x2A: 1,  # PUSH_STATIC_IDX (a = base slot)
+	0x2B: 1,  # POP_STATIC_IDX  (a = base slot)
 	0x31: 0,  # ADD
 	0x32: 0,  # SUB
 	0x33: 0,  # MUL
@@ -203,7 +203,7 @@ OP_OPERANDS = {
 	0x69: 2,  # LUA_CALL
 	0x6A: 2,  # BATCH_LUA
 	0x6B: 2,  # LUA_UNSYNCED
-	0x90: 2,  # SIGNATURE_LUA
+	0x90: 0,  # SIGNATURE_LUA (non-executable; skipped by decode walk)
 	0x71: 1,  # EXPLODE
 	0x72: 1,  # PLAY_SOUND
 	0x82: 0,  # SET
@@ -261,6 +261,9 @@ STACK_DELTA = {
 	0x42: 0,    # GET_UNIT_VALUE
 	0x39: 0,    # ABSOLUTE
 	0x3C: 0,    # SIGN
+	0x3E: -1,   # DELTAHEADING (reserved: pop2 push1)
+	0x3F: 0,    # MSINE        (reserved: pop1 push1)
+	0x40: 0,    # MCOSINE      (reserved: pop1 push1)
 	0x4B: 0,    # ADDI
 	0x4C: 0,    # MULI
 	0x61: -2,   # START_SCRIPT
@@ -270,7 +273,7 @@ STACK_DELTA = {
 	0x02: -2,   # TURN
 	0x0B: -1,   # MOVE_NOW
 	0x0C: -1,   # TURN_NOW
-	0x0A: -1,   # SCALE
+	0x0A: -2,   # SCALE
 	0x10: -1,   # SCALE_NOW
 	0x4F: -1,   # EXPLODE_REL
 	0x4D: -2,   # TURN_REL
@@ -293,10 +296,16 @@ STACK_DELTA = {
 }
 
 # Unsafe opcodes (touch global/shared state)
-# From RasOpIsThreadSafe in RasOpCodes.h
+# Must mirror RasOpIsThreadSafe() in RasOpCodes.h
 UNSAFE_OPCODES = {
 	0x69,   # LUA_CALL (synced Lua)
 	0x90,   # SIGNATURE_LUA
+	0x71,   # EXPLODE (uses global gsRNG)
+	0x4F,   # EXPLODE_REL
+	0x0F,   # EMIT_SFX
+	0x83,   # ATTACH_UNIT
+	0x84,   # DROP_UNIT
+	0x82,   # SET (may target cross-unit value-ids)
 }
 
 # Operator mapping
@@ -1169,38 +1178,32 @@ class RascCompiler(object):
 		pass
 
 	def _analyze_thread_safety(self):
-		"""Fixed-point thread-safety analysis (Part V of RASC_PLANS.md)."""
+		"""Recursion-safe thread-safety analysis (Part V of RASC_PLANS.md).
+
+		Start every function SAFE, then propagate UNSAFE for any function with
+		an unsafe op or a call to an unsafe/lua function. Pure recursive cycles
+		stay safe (growing safety from False would deadlock cycles as unsafe)."""
 		num_funcs = len(self._functions)
-		safe = [False] * num_funcs
+		safe = [not self._func_is_lua.get(self._functions[fi], False) for fi in range(num_funcs)]
 
-		# Build call graph: func_index -> set of called func indices
-		call_graph = [[] for _ in range(num_funcs)]
-		for fi, fname in enumerate(self._functions):
-			instrs = self._functions_instrs.get(fname, [])
-			for (op, flags, a, b) in instrs:
-				if op == OPCODES['CALL_SCRIPT']:
-					if 0 <= a < num_funcs:
-						call_graph[fi].append(a)
-
-		# Direct unsafety propagation is handled in the fixed-point loop below.
 		changed = True
 		while changed:
 			changed = False
 			for fi in range(num_funcs):
-				if safe[fi]:
+				if not safe[fi]:
 					continue
 				instrs = self._functions_instrs.get(self._functions[fi], [])
-				all_safe = True
+				unsafe = False
 				for (op, flags, a, b) in instrs:
 					if self._is_unsafe(op):
-						all_safe = False
+						unsafe = True
 						break
 					if op == OPCODES['CALL_SCRIPT']:
-						if 0 <= a < num_funcs and not safe[a]:
-							all_safe = False
+						if not (0 <= a < num_funcs) or not safe[a]:
+							unsafe = True
 							break
-				if all_safe:
-					safe[fi] = True
+				if unsafe:
+					safe[fi] = False
 					changed = True
 
 		return safe
