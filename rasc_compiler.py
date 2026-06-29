@@ -898,6 +898,10 @@ class RascCompiler(object):
 			if not self._instructions or self._instructions[-1][0] != OPCODES['RETURN']:
 				self._emit(OPCODES['PUSH_CONSTANT'], 0)
 				self._emit(OPCODES['RETURN'])
+		else:
+			# Reserve the slot the loader expects for a Lua signature function
+			# so absolute jump targets in later functions stay correct.
+			self._emit(OPCODES['SIGNATURE_LUA'])
 
 		func_instrs = self._instructions[func_instrs_start:]
 		self._func_start_offset[func_name] = func_instrs_start
@@ -1178,14 +1182,7 @@ class RascCompiler(object):
 					if 0 <= a < num_funcs:
 						call_graph[fi].append(a)
 
-		# Check direct unsafety
-		for fi, fname in enumerate(self._functions):
-			instrs = self._functions_instrs.get(fname, [])
-			for (op, flags, a, b) in instrs:
-				if self._is_unsafe(op):
-					return safe  # can't be safe
-				break
-
+		# Direct unsafety propagation is handled in the fixed-point loop below.
 		changed = True
 		while changed:
 			changed = False
@@ -1236,8 +1233,8 @@ class RascCompiler(object):
 			max_stack = self._func_max_stack.get(fname, 0)
 
 			if is_lua:
-				# Lua signature: emit a single SIGNATURE_LUA instruction
-				all_instrs.append((OPCODES['SIGNATURE_LUA'], 0, 0, 0))
+				# SIGNATURE_LUA already reserved at compile time
+				all_instrs.extend(instrs)
 				func_infos.append((decoded_offset, 0, 0, 1))
 			else:
 				all_instrs.extend(instrs)
