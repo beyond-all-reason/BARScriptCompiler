@@ -66,7 +66,7 @@ OP_OPERANDS = {
     0x0F: 1, 0x0A: 1, 0x10: 1,
     0x11: 1, 0x12: 1, 0x13: 0, 0x14: 1,
     0x21: 1, 0x22: 1, 0x23: 1, 0x24: 0,
-    0x25: 1, 0x26: 1, 0x27: 0, 0x2A: 0, 0x2B: 0,
+    0x25: 1, 0x26: 1, 0x27: 0, 0x2A: 1, 0x2B: 1,
     0x31: 0, 0x32: 0, 0x33: 0, 0x34: 0, 0x30: 0,
     0x35: 0, 0x36: 0, 0x37: 0, 0x38: 0,
     0x39: 0, 0x3A: 0, 0x3B: 0, 0x3C: 0, 0x3D: 0,
@@ -79,7 +79,7 @@ OP_OPERANDS = {
     0x64: 1, 0x65: 0, 0x66: 1,
     0x67: 0, 0x68: 1,
     0x69: 2, 0x6A: 2, 0x6B: 2,
-    0x90: 2,
+    0x90: 0,
     0x71: 1, 0x72: 1,
     0x82: 0, 0x83: 0, 0x84: 0,
 }
@@ -350,7 +350,7 @@ def decompile_file(filepath):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python rasc_decompiler.py <file.rasc|file.bin> [file2 ...]")
+        print("Usage: python rasc_decompiler.py <file.rasc> [file2 ...]")
         print("       python rasc_decompiler.py <directory>")
         sys.exit(1)
 
@@ -360,7 +360,7 @@ def main():
     for arg in args:
         if os.path.isdir(arg):
             for entry in sorted(os.listdir(arg)):
-                if entry.lower().endswith((".bin", ".rasc")):
+                if entry.lower().endswith(".rasc"):
                     files.append(os.path.join(arg, entry))
         else:
             if not os.path.exists(arg):
@@ -369,7 +369,7 @@ def main():
             files.append(arg)
 
     if not files:
-        print("No .bin or .rasc files found")
+        print("No .rasc files found")
         sys.exit(0)
 
     for filepath in files:

@@ -32,7 +32,7 @@ parser.add_argument("--include", type=str,
 parser.add_argument("--verbose", action='store_true',
 					help="Verbose output during compilation")
 parser.add_argument("filename", type=str,
-					help="A .rasc source file or directory of .rasc files",
+					help="A .ras source file or directory of .ras files",
 					default="", nargs='?')
 
 args = parser.parse_args()
@@ -379,7 +379,9 @@ UNARY_OPS = {
 	'!' : OPCODES['LOGICAL_NOT'],
 }
 
-RASC_EXT = 'rasc'
+RAS_EXT = 'ras'        # Source files
+RAS_EXT = 'ras'
+RASC_EXT = 'rasc'      # Compiled binary files
 
 PRINTED_NODES = {'keyword', 'symbol', 'integerConstant', 'floatConstant', 'identifier',
 				 'argumentList', 'staticVarDec', 'pieceDec', 'localVarDec',
@@ -1624,7 +1626,7 @@ def main(path, output_path=None):
 		print("File %s doesn't exist" % input_path)
 		sys.exit()
 	if os.path.isdir(input_path):
-		files = glob(os.path.join(input_path, "*.%s" % RASC_EXT))
+		files = glob(os.path.join(input_path, "*.%s" % RAS_EXT))
 	else:
 		files = [input_path]
 		input_path = os.path.split(input_path)[0]
@@ -1673,7 +1675,7 @@ def main(path, output_path=None):
 						break
 			sys.exit(1)
 
-		output_path = "%s.bin" % os.path.splitext(rasc_file_path)[0]
+		output_path = "%s.rasc" % os.path.splitext(rasc_file_path)[0]
 
 		if args.dumpast:
 			root.print_node(verbose=False, out_file=open(output_path + "_initial.ast", 'w'))
@@ -1712,4 +1714,4 @@ if __name__ == '__main__':
 		main(args.filename)
 	else:
 		parser.print_help()
-		print("Specify a path to a .%s file, or a directory of .%s files" % (RASC_EXT, RASC_EXT))
+		print("Specify a path to a .%s file, or a directory of .%s files" % (RAS_EXT, RAS_EXT))
