@@ -345,7 +345,7 @@ class Node(object):
 				out_file.write("%s<%s>\n %s" % (indentation, self._type,self._note))
 				for child in self._children:
 					child.print_node(indent + 1, out_file=out_file,verbose=verbose)
-				out_file.write("%s</%s>\n%s" % (indentation, self._typeself._note))
+				out_file.write("%s</%s>\n%s" % (indentation, self._type, self._note))
 		else:
 			for child in self._children:
 				child.print_node(indent, out_file=out_file, verbose=verbose)
