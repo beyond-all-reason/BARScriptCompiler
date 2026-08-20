@@ -24,6 +24,9 @@ parser.add_argument("--nopcpp", action='store_true', help = "Fallback to builtin
 parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed syntax tree into a _initial.ast file")
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
+gltf_swap_group = parser.add_mutually_exclusive_group()
+gltf_swap_group.add_argument("--gltf-swap", action='store_true', help = "Rewrite script axes from GLTF Z-up model space to engine Spring space (see GLTF_AXIS_SWAP.md)")
+gltf_swap_group.add_argument("--gltf-swap-s3o", action='store_true', help = "Same as --gltf-swap, but for models with s3ocompat=true in their .lua metafile")
 parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos", default=  "", nargs='?')
 
 args = parser.parse_args()
@@ -693,8 +696,17 @@ AXES = ('x', 'y', 'z')
 IGNORED_SYMBOLS = (';','(',')', '{', '}', ',')
 IGNORED_KEYWORDS = ('accelerate','decelerate')
 
-
-
+# GLTF -> Spring axis remapping, see GLTF_AXIS_SWAP.md and
+# RecoilEngine/rts/Rendering/Models/GLTFParser.cpp (CGLTFParser::Load)
+# gltf axis letter -> (spring axis letter, negate the signed on-axis value)
+if args.gltf_swap:
+	# default engine path:  x -> x, y -> -z, z -> y
+	GLTF_AXIS_MAP = {'x': ('x', False), 'y': ('z', True), 'z': ('y', False)}
+elif args.gltf_swap_s3o:
+	# s3ocompat path:       x -> -x, y ->  z, z -> y
+	GLTF_AXIS_MAP = {'x': ('x', True), 'y': ('z', False), 'z': ('y', False)}
+else:
+	GLTF_AXIS_MAP = None
 
 class Compiler(object):
 	def __init__(self, tree, cobVersion = 4):
@@ -894,6 +906,16 @@ class Compiler(object):
 			keyword += '-%s' % (node[i + 2].get_text())
 			i += 2
 
+		base_keyword = keyword
+		# --gltf-swap: the axis node comes AFTER the value expression in reverse
+		# order, so find it up front to know if the on-axis value gets negated
+		gltf_invert_value = False
+		if GLTF_AXIS_MAP is not None:
+			for child_node in node.get_children():
+				if child_node.get_type() == 'axis':
+					gltf_invert_value = GLTF_AXIS_MAP[child_node[0].get_text().lower()][1]
+					break
+
 		if keyword == 'set' or keyword == 'attach-unit':
 			children = node.get_children()
 		else:
@@ -915,9 +937,21 @@ class Compiler(object):
 					raise Exception("Function not found: %s" % (func_name,))
 				arguments.append(func_index)
 			elif child_node.get_type() == 'axis':
-				arguments.append(AXES.index(child_node[0].get_text()))
+				letter = child_node[0].get_text().lower()
+				if GLTF_AXIS_MAP is not None:
+					letter = GLTF_AXIS_MAP[letter][0]
+				arguments.append(AXES.index(letter))
 			elif child_node.get_type() == 'expression':
+				# --gltf-swap: negate the signed on-axis value (turn angle, move
+				# position, spin speed) when the swapped spring axis is inverted.
+				# scale/decelerate/etc values are magnitudes and never negated.
+				invert = (GLTF_AXIS_MAP is not None and gltf_invert_value and
+							base_keyword in ('turn', 'move', 'spin'))
+				if invert:
+					self._code += OPCODES['PUSH_CONSTANT'] + get_signed_num(-1)
 				self.parse(child_node)
+				if invert:
+					self._code += OPCODES['MUL']
 			elif child_node.get_type() == 'expressionList':
 				if len(child_node.get_children()) > 0:
 					self.parse(child_node[0])
