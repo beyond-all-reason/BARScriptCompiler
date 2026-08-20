@@ -1251,6 +1251,11 @@ class RascCompiler(object):
 			dec_off, max_st, ts, is_lua = func_infos[i]
 			func_infos[i] = (dec_off, max_st, 1 if ts_flags[i] else 0, is_lua)
 
+		# Print thread-safety results
+		for i, fname in enumerate(self._functions):
+			flag = "SAFE" if ts_flags[i] else "UNSAFE"
+			print("  Thread-safety: %s -> %s" % (fname, flag))
+
 		# Build RASC binary
 		rasc = rasc_file.RascFile(
 			script_names=self._functions,
