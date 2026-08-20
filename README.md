@@ -79,7 +79,6 @@ npp_save
 ```
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
 parser.add_argument("--dontfold", action='store_true', help = "Disable constant folding optimization")
-parser.add_argument("--nopcpp", action='store_true', help = "Fallback to builtin preprocessor instead of pcpp")
 parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed syntax tree into a _initial.ast file")
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")

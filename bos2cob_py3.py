@@ -20,7 +20,6 @@ version = "1.1"
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
 parser.add_argument("--dontfold", action='store_true', help = "Disable constant folding optimization")
-parser.add_argument("--nopcpp", action='store_true', help = "Fallback to builtin preprocessor instead of pcpp")
 parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed syntax tree into a _initial.ast file")
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
@@ -1234,7 +1233,6 @@ def token_generator(code):
 	is_line_comment = False
 	is_multi_line_comment = False
 	is_in_quotation = False
-	is_preprocessor = False
 	skip = False
 
 	idx = 0
@@ -1264,10 +1262,6 @@ def token_generator(code):
 				
 				#print(2,  s, idx)
 				yield s, idx
-			if is_preprocessor:
-				is_preprocessor = False
-				#print(3,  '$', idx)
-				yield '$', idx
 			idx+=2
 			prev_idx = idx
 			continue
@@ -1279,33 +1273,6 @@ def token_generator(code):
 				#print(4,  s, idx)
 				yield s, idx
 			idx+=2
-			prev_idx = idx
-			continue
-
-		if not is_line_comment and not is_multi_line_comment and not is_in_quotation and not is_preprocessor and code[idx] == "#":
-			is_preprocessor = True
-			s = code[prev_idx:idx].strip()
-			if len(s) > 0:
-				
-				#print(5,  s, idx)
-				yield s, idx
-			#print(6,  "#", idx)
-			yield '#', idx
-			idx+=1
-			prev_idx = idx
-			continue
-
-		if not is_line_comment and not is_multi_line_comment and not is_in_quotation and is_preprocessor and code[idx] == "\n" and code[idx-1:idx] != '\\' and code[idx-2:idx] != '\\\r':
-			is_preprocessor = False
-			s = code[prev_idx:idx].strip()
-			if len(s) > 0:
-				
-				#print(7,  s, idx)
-				yield s, idx
-			
-			#print(8,  '$', idx)
-			yield '$', idx #mark end of preprocessor directive
-			idx+=1
 			prev_idx = idx
 			continue
 
@@ -1348,184 +1315,36 @@ def token_generator(code):
 	return
 
 
-def preprocess(code, include_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN_UNIT_VALUE" : ""}, recursion = 0):
-	if recursion > 10:
-		print ("Error: recursion limit reached")
-		sys.exit(1)
-
-	gen = token_generator(code)
-	is_preprocessor_directive = False
-	skip = 0
-	ifs = 0
-	while True:
-		try:
-			token, idx = gen.__next__()
-			#print (token)
-		except Exception as e:
-			if ifs > 0:
-				print ("Error: Missing #endif at %d"%(idx))
-				sys.exit(1)
-			if is_preprocessor_directive:
-				print ("Preprocessor error at %d"%(idx))
-				sys.exit(1)
-			break
-
-		if token == '#':
-			is_preprocessor_directive = True
-			continue
-
-		if token == '$':
-			continue
-
-		if not is_preprocessor_directive:
-			if skip > 0:
-				continue
-			if token not in defs:
-				yield token, idx
-				continue
-
-			for prep_tokens in preprocess(defs[token], include_path, defs, recursion + 1):
-				yield prep_tokens, idx
-			continue
-
-		is_preprocessor_directive = False
-
-		if token.lower() == 'include':
-			if skip > 0:
-				continue
-			included, idx = gen.__next__()
-			included = included.strip('"')
-			try:
-				if not os.path.exists(included):
-					alt_path = os.path.join(include_path, included)
-					if not os.path.exists(alt_path):
-						print ('Error: can\'t find %s at %d' %( included, idx))
-						sys.exit(1)
-					included = alt_path
-
-				content = open(included, 'r').read()
-				print ("Opening include file", included)
-				for prep_tokens in preprocess(content, include_path, defs, recursion + 1):
-					#print (prep_tokens,idx)
-					yield prep_tokens, idx
-			except:
-				print ('Error: Couldn\'t include %s, at token %s at %d' % (included, token, idx))
-				sys.exit(1)
-			continue
-
-		if token.lower() == 'define':
-			if skip > 0:
-				continue
-			current_definition, idx = gen.__next__()
-			defs[current_definition] = ""
-			while True:
-				token, idx = gen.__next__()
-				if token == '$':
-					break
-				defs[current_definition] += " " + token
-			continue
-
-		if token.lower() == 'undef':
-			if skip > 0:
-				continue
-			current_definition, idx = gen.__next__()
-			del defs[current_definition]
-			continue
-
-		if token.lower() == 'ifdef':
-			ifs += 1
-			if skip > 0:
-				skip += 1
-				continue
-			current_definition, idx = gen.__next__()
-			if current_definition not in defs:
-				skip += 1
-
-			continue
-
-		if token.lower() == 'ifndef':
-			ifs += 1
-			if skip > 0:
-				skip += 1
-				continue
-
-			current_definition, idx = gen.__next__()
-			if current_definition in defs:
-				skip += 1
-
-			continue
-
-		if token.lower() == 'if':
-			ifs += 1
-			if skip > 0:
-				skip += 1
-				continue
-			query = ""
-			while True:
-				token, idx = gen.__next__()
-				if token == '$':
-					break
-				else:
-					query += token
-
-			query = "".join(preprocess(query, include_path, defs, recursion + 1))
-			result = eval(query.strip())
-			if not result or result == 0:
-				skip += 1
-			continue
-
-		if token.lower() == 'else':
-			if skip == 1:
-				skip = 0
-			elif skip == 0:
-				skip = 1
-			continue
-
-		if token.lower() == 'endif':
-			if ifs == 0:
-				print ("Error: extraneous #endif at %d" % (idx))
-				sys.exit(1)
-			ifs -= 1
-			if skip > 0:
-				skip -= 1
-			continue
-
-		print ("Error: unhandled token %s at %d" % (token,idx))
-		sys.exit(1)
+from pcpp import lextab
+from pcpp.ply.ply import lex
 
 
-if not args.nopcpp:
-	from io import StringIO
-	from pcpp import lextab
-	from pcpp.ply.ply import lex
-
-
-	# Custom Preprocessor class inheriting from pcpp.Preprocessor
-	class MyPreprocessor(pcpp.Preprocessor):
-		def __init__(self, input_string):
-			self.lexer = lex.lex(object=pcpp.parser, lextab=lextab, optimize=True)
-			super(MyPreprocessor, self).__init__()
-			# Use StringIO to simulate file input and output
-			self.line_directive = None
-			self.input = input_string
-			self.output = StringIO()
+# Custom Preprocessor class inheriting from pcpp.Preprocessor
+class MyPreprocessor(pcpp.Preprocessor):
+	def __init__(self, input_string):
+		self.lexer = lex.lex(object=pcpp.parser, lextab=lextab, optimize=True)
+		super(MyPreprocessor, self).__init__()
+		# Use StringIO to simulate file input and output
+		self.line_directive = None
+		self.input = input_string
+		self.output = StringIO()
 		
-		def preprocess(self):
-			# Parse and preprocess the input
+	def preprocess(self):
+		# Parse and preprocess the input
 			
-			#defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
-			self.define("TRUE 1")
-			self.define("FALSE 0")
-			self.define("UNKNOWN_UNIT_VALUE")
-			self.parse(self.input)
-			self.write(self.output)
-			# Return the preprocessed output as a string
-			return self.output.getvalue()
+		#defaults = '#define TRUE 1\r\n#define FALSE 0\r\n#define UNKNOWN_UNIT_VALUE \r\n'
+		self.define("TRUE 1")
+		self.define("FALSE 0")
+		self.define("UNKNOWN_UNIT_VALUE")
+		self.parse(self.input)
+		self.write(self.output)
+		# Return the preprocessed output as a string
+		return self.output.getvalue()
 
-		def on_error(self, file, line, msg):
-			print(f"Preprocessor error in file: {file} at line: {line} Error: {msg}")
-			sys.exit(1)
-			return super().on_error(file, line, msg)()
+	def on_error(self, file, line, msg):
+		print(f"Preprocessor error in file: {file} at line: {line} Error: {msg}")
+		sys.exit(1)
+		return super().on_error(file, line, msg)()
 
 def main(path, output_path = None):
 	if path[-1] == '/':
@@ -1548,19 +1367,17 @@ def main(path, output_path = None):
 		print ("BARScriptCompiler %s Preprocessing %s" % (version, bos_file_path,))
 		root = Node('root')
 		content = open(bos_file_path, 'r').read() # why rb binary?
-		if not args.nopcpp:
-			pcpp_preproc = MyPreprocessor(content)
-			pcpp_preproc.add_path(os.path.dirname(os.path.abspath(bos_file_path)))
-			if args.include:
-				pcpp_preproc.add_path(args.include)
+		pcpp_preproc = MyPreprocessor(content)
+		pcpp_preproc.add_path(os.path.dirname(os.path.abspath(bos_file_path)))
+		if args.include:
+			pcpp_preproc.add_path(args.include)
 
-			content = pcpp_preproc.preprocess()
-			if args.dumppcpp:
-				print("Writing PCPP file as "+bos_file_path+'.pcpp')
-				with open(bos_file_path + '.pcpp','w') as f:
-					f.write(content)
-		# FOR SOME GODFORSAKEN REASON THE DEFS DICT IS RETAINED AND HAS TO BE REDEFINED HERE!
-		pump = Pump(preprocess(content, input_path, defs = {"TRUE" : "1", "FALSE" : "0", "UNKNOWN_UNIT_VALUE" : ""}))
+		content = pcpp_preproc.preprocess()
+		if args.dumppcpp:
+			print("Writing PCPP file as "+bos_file_path+'.pcpp')
+			with open(bos_file_path + '.pcpp','w') as f:
+				f.write(content)
+		pump = Pump(token_generator(content))
 		print ("Parsing %s"%(bos_file_path))
 		result = try_parse(pump, root, '_file')
 		if len(pump.next()) != 0:
