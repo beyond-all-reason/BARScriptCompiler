@@ -89,7 +89,9 @@ parser.add_argument("filename", type = str, help= "A bos file to compile, or a d
 
 `--gltf-swap` rewrites the axis of every `turn`/`move`/`spin` (and `stop-spin`/`scale`/`wait-*`)
 statement from the GLTF authoring frame (Z-up) to the engine's Spring frame, inserting a runtime
-`* -1` on signed on-axis values where the swap negates the axis. See [GLTF_AXIS_SWAP.md](GLTF_AXIS_SWAP.md).
+`* -1` on signed on-axis values where the swap negates the axis. Alternatively, put a
+`#define GLTF` (optionally with a custom axis spec) in the `.bos` file itself; per-file defines
+override the flags. See [GLTF_AXIS_SWAP.md](GLTF_AXIS_SWAP.md).
 
 ## Future Plans
 

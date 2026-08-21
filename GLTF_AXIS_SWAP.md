@@ -1,4 +1,4 @@
-# GLTF axis swapping (`--gltf-swap`)
+# GLTF axis swapping (`--gltf-swap` / `#define GLTF`)
 
 ## The problem
 
@@ -123,7 +123,27 @@ Note that on the default path *only* `y-axis` statements get a sign flip; `x`
 and `z` change axis without one (the flip lands on whatever Spring axis ends up
 antiparallel to the script axis).
 
-## Usage
+## Enabling
+
+There are two equivalent ways to turn axis remapping on for a compile:
+
+### 1. `#define GLTF` in the `.bos` file (per-file, recommended)
+
+Add a `#define GLTF` line anywhere the preprocessor sees it (top of the `.bos`,
+or in a `#include`d header). The define is read from the preprocessor's macro
+table, so it also works when it comes from an `#include` and is correctly
+ignored when it sits in a dead `#if 0` block.
+
+```
+#define GLTF
+```
+
+A **bare** `#define GLTF` (no value) activates the default engine path (see the
+table above: `x -> x, y -> -z, z -> y`). A value gives full control (next
+section). A file-level `#define GLTF` takes precedence over the CLI flags;
+the flags remain as a fallback for files without the define.
+
+### 2. Command line flags (whole compile)
 
 ```
 python bos2cob_py3.py --gltf-swap myunit.bos
@@ -133,5 +153,52 @@ python bos2cob_py3.py --gltf-swap-s3o myunit.bos
 Mutually exclusive; pick the one matching your model's export (`s3ocompat` in the
 `.lua` metafile / scene extras selects the s3o orientation on the engine side).
 
-Without either flag, scripts are compiled verbatim — assume the script was written
-directly in Spring axes (forward +X, up +Y, left +Z).
+Without a `#define GLTF` or either flag, scripts are compiled verbatim — assume
+the script was written directly in Spring axes (forward +X, up +Y, left +Z).
+
+## Custom axis specs (`#define GLTF <spec>`)
+
+Instead of fixed remapping tables, the GLTF define can carry an arbitrary axis
+spec as its value. The spec is a series of `;`-separated fields (case-insensitive,
+whitespace around fields is ignored):
+
+```
+#define GLTF <remap_x>;<remap_y>;<remap_z>[;<turn_x>;<turn_y>;<turn_z>[;<move_x>;<move_y>;<move_z>]]
+```
+
+- Fields 1–3 (**remap**, always required): which engine axis the script's
+  `x` / `y` / `z` axis maps to. Each is one of `x`, `y`, `z`. Any permutation or
+  even repeated target works — full arbitrary remapping. The remap is applied to
+  *every* statement that carries an axis: `turn`, `move`, `spin`, `stop-spin`,
+  `scale`, `wait-for-turn`, `wait-for-move`, `wait-for-scale`.
+- Fields 4–6 (**turn signs**, optional): `+` or `-` per script axis. `-` negates
+  the signed on-axis value of the *angular* commands — `turn` (incl. `turn ... now`)
+  and `spin`'s initial speed — for that axis.
+- Fields 7–9 (**move signs**, optional): `+` or `-` per script axis. `-` negates
+  the signed on-axis value of `move` (incl. `move ... now`) for that axis.
+
+The sign split exists because a mirror/reflection between frames flips axial
+vectors (turn/spin) and polar vectors (move) differently, so the two channels
+can genuinely disagree. Values that are magnitudes (`speed <...>`,
+`accelerate <...>`, `decelerate <...>`, `scale` amounts) are never negated.
+
+Omitted sign fields default to `+` (no negation):
+
+| # of fields | Meaning |
+|---|---|
+| 3 | remap only, no value negation |
+| 6 | remap + one sign set applied to **both** turn and move |
+| 9 | remap + separate turn and move sign sets |
+
+### Examples
+
+```
+#define GLTF                          // default engine path  (x->x, y->-z, z->y)
+#define GLTF x;z;y;+;-;+              // same as --gltf-swap  (only y negated)
+#define GLTF x;z;y;-;+;+              // same as --gltf-swap-s3o (only x negated)
+#define GLTF x;z;y                    // plain z/y swap, no negation
+#define GLTF z;y;x;-;+;-;+;+;-;+      // full 9-field spec: custom remap + per-channel signs
+```
+
+The spec is validated at parse time; an invalid field count, axis letter or sign
+aborts the compile with the line number of the offending `#define GLTF`.
