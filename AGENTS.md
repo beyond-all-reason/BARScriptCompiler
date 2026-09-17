@@ -33,6 +33,7 @@ CI (`.github/workflows/test.yml`) runs `python -m pytest` on Python 3.12.
 - The compiler writes `.cob` **next to the `.bos` source**. Never compile fixtures in place — copy to a temp dir first (see `copy_tree_to_tmp` in `tests/conftest.py`).
 - The `WARNING: Couldn't write lextab module 'pcpp.lextab'` message is normal; `tests` and the compiler already filter it.
 - CLI flags live at the top of `bos2cob_py3.py`; keep the README "Command line args" section in sync when changing them. `--gltf-swap`/`--gltf-swap-s3o` are deprecated no-ops, kept to flag stale build scripts.
+- Always bump the `version` string at the top of `bos2cob_py3.py` (e.g. `1.2` → `1.3`) on any change to the compiler.
 - COB header layout is defined in `COB_HEADER_FIELDS` in `tests/conftest.py` and mirrored by `cob_file.py`.
 
 ## Policies

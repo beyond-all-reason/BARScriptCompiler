@@ -3,11 +3,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
 PUSH_CONSTANT = (0x10021001).to_bytes(4, "little")
+EMIT_SFX = (0x1000F000).to_bytes(4, "little")
 ADD = (0x10031000).to_bytes(4, "little")
+SUB = (0x10032000).to_bytes(4, "little")
 MUL = (0x10033000).to_bytes(4, "little")
 DIV = (0x10034000).to_bytes(4, "little")
 MOD = (0x10034001).to_bytes(4, "little")
@@ -111,3 +115,58 @@ def test_right_boundary_operand_not_stolen(tmp_path):
 	assert BITWISE_OR in cob
 	assert SET_LESS in cob
 	assert pushed_value(6) not in cob
+
+
+def compile_emit_sfx_bos(tmp_path, filename, from_expr, *flags):
+	bos = tmp_path / filename
+	bos.write_text(
+		"piece base, fire1, fire2;\n\nCreate()\n{\n\temit-sfx 1024 from %s;\n}\n" % from_expr
+	)
+	result = subprocess.run(
+		[sys.executable, str(ROOT / "bos2cob_py3.py"), *flags, str(bos)],
+		cwd=ROOT,
+		text=True,
+		capture_output=True,
+	)
+	return result
+
+
+def test_emit_sfx_piece_expression_folds(tmp_path):
+	result = compile_emit_sfx_bos(tmp_path, "sfx.bos", "base + 1")
+	assert result.returncode == 0, result.stdout + result.stderr
+	cob = (tmp_path / "sfx.cob").read_bytes()
+	assert PUSH_CONSTANT + struct.pack("<L", 1024) in cob
+	assert EMIT_SFX + struct.pack("<L", 1) in cob
+	assert ADD not in cob
+
+
+def test_emit_sfx_piece_subtract_folds(tmp_path):
+	result = compile_emit_sfx_bos(tmp_path, "sfxsub.bos", "fire2 - base")
+	assert result.returncode == 0, result.stdout + result.stderr
+	cob = (tmp_path / "sfxsub.cob").read_bytes()
+	assert EMIT_SFX + struct.pack("<L", 2) in cob
+	assert SUB not in cob
+
+
+def test_emit_sfx_bare_piece_name_still_works(tmp_path):
+	for filename, flags in (("sfxplain.bos", ()), ("sfxplain2.bos", ("--dontfold",))):
+		result = compile_emit_sfx_bos(tmp_path, filename, "base", *flags)
+		assert result.returncode == 0, result.stdout + result.stderr
+		cob = (tmp_path / (Path(filename).stem + ".cob")).read_bytes()
+		assert EMIT_SFX + struct.pack("<L", 0) in cob
+
+
+@pytest.mark.parametrize(
+	("filename", "from_expr", "flags", "expected"),
+	[
+		("sfxnf.bos", "base + 1", ("--dontfold",), "compile-time constant"),
+		("sfxrange.bos", "base + 99", (), "out of range"),
+		("sfxunknown.bos", "nose", (), "Piece not found"),
+		("sfxruntime.bos", "base + x", (), "compile-time constant"),
+	],
+)
+def test_emit_sfx_bad_piece_expression_fails(tmp_path, filename, from_expr, flags, expected):
+	result = compile_emit_sfx_bos(tmp_path, filename, from_expr, *flags)
+	assert result.returncode != 0
+	assert expected in result.stdout + result.stderr
+	assert not (tmp_path / (Path(filename).stem + ".cob")).exists()

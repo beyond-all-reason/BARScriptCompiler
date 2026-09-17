@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore', 'write lextab module')
 from io import StringIO
 import pcpp 
 
-version = "1.1"
+version = "1.2"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
@@ -338,22 +338,22 @@ class Node(object):
 			for child in self._children:
 				child.print_node(indent, out_file=out_file, verbose=verbose)
 
-	def fold_node(self):
+	def fold_node(self, piece_map = None):
 		count = 0
 		for child in self._children:
-			count += child.fold_node()
+			count += child.fold_node(piece_map)
 
 		if self._type == 'term' and len(self._children) == 3:
 			symbol_start, middle, symbol_end = self._children
 			if (symbol_start.get_type() == 'symbol' and symbol_end.get_type() == 'symbol'
 					and symbol_start.get_text() == '(' and symbol_end.get_text() == ')'
 					and middle.get_type() == 'expression' and len(middle.get_children()) == 1):
-				if term_constant_value(middle.get_children()[0]) is not None:
+				if term_constant_value(middle.get_children()[0], piece_map) is not None:
 					self._children = [middle.get_children()[0].get_children()[0]]
 					count += 1
 
 		elif self._type == 'expression':
-			count += fold_expression(self)
+			count += fold_expression(self, piece_map)
 
 		return count
 
@@ -410,10 +410,25 @@ def constant_value(node):
 		return None
 
 
-def term_constant_value(term):
+def term_constant_value(term, piece_map = None):
 	if term.get_type() != 'term' or len(term.get_children()) != 1:
 		return None
-	return constant_value(term.get_children()[0])
+	child = term.get_children()[0]
+	if piece_map is not None and child.get_type() == 'varName':
+		return piece_map.get(child.get_text().lower())
+	return constant_value(child)
+
+
+def collect_piece_names(node):
+	names = []
+	if node.get_type() == 'pieceDec':
+		names.append(node[1].get_text())
+		for child in node.get_children()[2:]:
+			if child.get_type() == 'commaPiece':
+				names.append(child[1].get_text())
+	for child in node.get_children():
+		names.extend(collect_piece_names(child))
+	return names
 
 
 def island_starts_safe(node, k):
@@ -488,13 +503,13 @@ def evaluate_island(tokens):
 	return values[0]
 
 
-def fold_expression(node):
+def fold_expression(node, piece_map = None):
 	count = 0
 	children = node._children
 	k = 0
 	while k < len(children):
 		term = children[0] if k == 0 else children[k][1]
-		value = term_constant_value(term)
+		value = term_constant_value(term, piece_map)
 		if value is None or k + 1 >= len(children) or not island_starts_safe(node, k):
 			k += 1
 			continue
@@ -505,7 +520,7 @@ def fold_expression(node):
 			op = opterm[0].get_text()
 			if op not in FOLDABLE_OPS:
 				break
-			right = term_constant_value(opterm[1])
+			right = term_constant_value(opterm[1], piece_map)
 			if right is None:
 				break
 			tokens.append(op)
@@ -687,7 +702,7 @@ PARSER_DICT = {
 	'_waitForMoveStatement' : (('wait', '-', 'for', '-', 'move', '_pieceName', 'along', '_axis',),),
 	'_waitForScaleStatement' : (('wait', '-', 'for', '-', 'scale', '_pieceName', 'along', '_axis',),),
 
-	'_emitSfxStatement' : (('emit', '-', 'sfx', '_expression', 'from', '_pieceName',),),
+	'_emitSfxStatement' : (('emit', '-', 'sfx', '_expression', 'from', '_expression',),),
 	'_sleepStatement' : (('sleep', '_expression',),),
 	'_hideStatement' : (('hide', '_pieceName',),),
 	'_showStatement' : (('show', '_pieceName',),),
@@ -736,6 +751,7 @@ class Compiler(object):
 	def __init__(self, tree, cobVersion = 4):
 		self._static_vars = []
 		self._local_vars = []
+		self._all_local_vars = []
 		self._pieces = []
 		self._functions = []
 		self._code = b""
@@ -813,6 +829,12 @@ class Compiler(object):
 
 		self.parse_children(node)
 
+		var_names = set(v.lower() for v in self._static_vars)
+		var_names.update(v.lower() for v in self._all_local_vars)
+		for piece_name in self._pieces:
+			if piece_name.lower() in var_names:
+				raise Exception('Piece name "%s" cannot be used as a static-var or local variable. Piece names must be unique overall!' % (piece_name,))
+
 	def parse_staticVarDec(self, node):
 		static_var_name = node[3].get_text()
 		if static_var_name in self._static_vars:
@@ -875,6 +897,7 @@ class Compiler(object):
 			raise Exception('Local-var named "%s" already exists. Multiple definitions are not allowed!' % (local_var_name))
 		
 		self._local_vars.append(node[0].get_text())
+		self._all_local_vars.append(node[0].get_text())
 		self._code += OPCODES['CREATE_LOCAL_VAR']
 
 		for comma_var in node.get_children()[1:]:
@@ -885,6 +908,7 @@ class Compiler(object):
 				if local_var_name in self._local_vars:
 					raise Exception('Local-var named "%s" already exists. Multiple definitions are not allowed!' % (local_var_name))
 				self._local_vars.append(comma_var[1].get_text())
+				self._all_local_vars.append(comma_var[1].get_text())
 				self._code += OPCODES['CREATE_LOCAL_VAR']
 
 
@@ -937,7 +961,13 @@ class Compiler(object):
 
 
 		arguments = []
+		emit_sfx_from_expr = None
+		if keyword == 'emit-sfx':
+			emit_sfx_from_expr = node[5]
+			arguments.append(self.get_emit_sfx_piece(emit_sfx_from_expr))
 		for child_node in children:
+			if child_node is emit_sfx_from_expr:
+				continue
 			if child_node.get_type() == 'pieceName':
 				piece_name = child_node.get_text()
 				piece_index = index(self._pieces, piece_name)
@@ -984,6 +1014,26 @@ class Compiler(object):
 			raise Exception('Unhandled keyword %s %s' % (keyword, opcode_name))
 
 		self._code += opcode + struct.pack("<%dL" % len(arguments), *arguments[::-1])
+
+
+	def get_emit_sfx_piece(self, expr):
+		children = expr.get_children()
+		if len(children) != 1:
+			raise Exception("emit-sfx 'from' must be a compile-time constant piece expression: %s" % (expr.get_text(),))
+		term = children[0]
+		if term.get_type() != 'term' or len(term.get_children()) != 1:
+			raise Exception("emit-sfx 'from' must be a compile-time constant piece expression: %s" % (expr.get_text(),))
+		child = term.get_children()[0]
+		if child.get_type() == 'varName':
+			piece_name = child.get_text()
+			piece_index = index(self._pieces, piece_name)
+			if piece_index < 0:
+				raise Exception('Piece not found: %s' % (piece_name,))
+			return piece_index
+		value = constant_value(child)
+		if value is None or value < 0 or value >= len(self._pieces):
+			raise Exception('emit-sfx piece out of range: %s' % (expr.get_text(),))
+		return value
 
 
 	def parse_get(self, node):
@@ -1412,7 +1462,8 @@ def main(path, output_path = None):
 		# sys.stdout = output_file
 			
 		if not args.dontfold:
-			folds = root.fold_node()
+			piece_map = {name.lower(): i for i, name in enumerate(collect_piece_names(root))}
+			folds = root.fold_node(piece_map)
 			if args.dumpast:
 				root.print_node(verbose=False, out_file=(open(output_path+"_folded.ast",'w')))
 

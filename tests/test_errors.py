@@ -34,6 +34,48 @@ from conftest import run_compiler
 			"}\n",
 			"Preprocessor error",
 		),
+		(
+			"static_var_shadows_piece",
+			"piece base;\n"
+			"static-var base;\n"
+			"Create()\n"
+			"{\n"
+			"}\n",
+			"Piece names must be unique",
+		),
+		(
+			"local_var_shadows_piece",
+			"piece base;\n"
+			"Create()\n"
+			"{\n"
+			"\tvar base;\n"
+			"}\n",
+			"Piece names must be unique",
+		),
+		(
+			"func_arg_shadows_piece",
+			"piece base;\n"
+			"Create(base)\n"
+			"{\n"
+			"}\n",
+			"Piece names must be unique",
+		),
+		(
+			"piece_declared_after_shading_func",
+			"Create(base)\n"
+			"{\n"
+			"}\n"
+			"piece base;\n",
+			"Piece names must be unique",
+		),
+		(
+			"case_insensitive_piece_shadow",
+			"piece base;\n"
+			"Create(BASE)\n"
+			"{\n"
+			"}\n",
+			"Piece names must be unique",
+		),
 	],
 )
 def test_invalid_input_fails(tmp_path, name, content, expected):

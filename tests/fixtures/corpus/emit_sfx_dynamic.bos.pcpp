@@ -1,0 +1,11 @@
+
+
+
+
+
+
+
+piece base, flare1, flare2, flare3,flare4;
+Create(){
+	if(0 == 0) emit-sfx 1024 from flare1 + 0; if(0 == 1) emit-sfx 1024 from flare1 + 1; if(0 == 2) emit-sfx 1024 from flare1 + 2; if(0 == 3) emit-sfx 1024 from flare1 + 3;;
+}

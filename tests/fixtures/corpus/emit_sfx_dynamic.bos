@@ -1,0 +1,11 @@
+#define EMIT_SFX_DYNAMIC_4(SFXID, STARTPIECE, OFFSET) \
+	if(OFFSET == 0) emit-sfx SFXID from STARTPIECE + 0; \
+	if(OFFSET == 1) emit-sfx SFXID from STARTPIECE + 1; \ 
+	if(OFFSET == 2) emit-sfx SFXID from STARTPIECE + 2; \
+	if(OFFSET == 3) emit-sfx SFXID from STARTPIECE + 3;
+	
+	
+piece base, flare1, flare2, flare3,flare4;
+Create(){
+	EMIT_SFX_DYNAMIC_4(1024,flare1,0);
+}
