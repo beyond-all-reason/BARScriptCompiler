@@ -82,16 +82,16 @@ parser.add_argument("--dontfold", action='store_true', help = "Disable constant 
 parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed syntax tree into a _initial.ast file")
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
-parser.add_argument("--gltf-swap", action='store_true', help = "Rewrite script axes from GLTF Z-up model space to engine Spring space (see GLTF_AXIS_SWAP.md)")
-parser.add_argument("--gltf-swap-s3o", action='store_true', help = "Same as --gltf-swap, but for models with s3ocompat=true in their .lua metafile")
+parser.add_argument("--gltf-swap", action='store_true', help = "Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading")
+parser.add_argument("--gltf-swap-s3o", action='store_true', help = "Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading")
 parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos")
 ```
 
-`--gltf-swap` rewrites the axis of every `turn`/`move`/`spin` (and `stop-spin`/`scale`/`wait-*`)
-statement from the GLTF authoring frame (Z-up) to the engine's Spring frame, inserting a runtime
-`* -1` on signed on-axis values where the swap negates the axis. Alternatively, put a
-`#define GLTF` (optionally with a custom axis spec) in the `.bos` file itself; per-file defines
-override the flags. See [GLTF_AXIS_SWAP.md](GLTF_AXIS_SWAP.md).
+Current RecoilEngine versions convert GLTF/GLB node and geometry coordinates into
+the engine model frame while loading. BOS files therefore use the same axes for
+equivalent S3O and GLTF models. The old GLTF flags and special `#define GLTF`
+interpretation are deprecated no-ops retained only to diagnose stale build scripts.
+See [GLTF_AXIS_SWAP.md](GLTF_AXIS_SWAP.md) for migration instructions.
 
 ## Future Plans
 

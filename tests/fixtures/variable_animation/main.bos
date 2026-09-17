@@ -1,0 +1,36 @@
+piece pelvis, thigh;
+static-var VA_frames, VA_sleepTime, VA_amplitude, VA_timeError, VA_useAmplitude;
+
+#define SIGNAL_MOVE 1
+#define CURRENT_SPEED 29
+#define MAX_SPEED 75
+#define VA_TIME_PRECISION 1000
+#define VA_AMPLITUDE_BLEND 50
+#define VA_MIN_SPEED_PERCENT 25
+#define VA_MAX_SPEED_PERCENT 150
+#define VA_MIN_AMPLITUDE 50
+#define VA_MAX_AMPLITUDE 125
+#define VA_MIN_FRAMES 1
+#define VA_MAX_FRAMES 12
+
+#include "variable_animation.h"
+#include "Walk.h"
+#include "Run.h"
+
+Create()
+{
+	VA_useAmplitude = 0;
+	call-script VA_Reset();
+}
+
+StartMoving(reversing)
+{
+	signal SIGNAL_MOVE;
+	start-script StartWalk();
+}
+
+StopMoving()
+{
+	signal SIGNAL_MOVE;
+	call-script StopWalk();
+}

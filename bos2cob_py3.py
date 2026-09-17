@@ -24,11 +24,13 @@ parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed sy
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
 gltf_swap_group = parser.add_mutually_exclusive_group()
-gltf_swap_group.add_argument("--gltf-swap", action='store_true', help = "Rewrite script axes from GLTF Z-up model space to engine Spring space (see GLTF_AXIS_SWAP.md)")
-gltf_swap_group.add_argument("--gltf-swap-s3o", action='store_true', help = "Same as --gltf-swap, but for models with s3ocompat=true in their .lua metafile")
+gltf_swap_group.add_argument("--gltf-swap", action='store_true', help = "Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading")
+gltf_swap_group.add_argument("--gltf-swap-s3o", action='store_true', help = "Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading")
 parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos", default=  "", nargs='?')
 
 args = parser.parse_args()
+if args.gltf_swap or args.gltf_swap_s3o:
+	print ("Warning: --gltf-swap and --gltf-swap-s3o are deprecated no-ops; current RecoilEngine versions convert GLTF model axes while loading")
 #args.filename = "C:/Users/Peti/Documents/My Games/Spring/games/Beyond-All-Reason.sdd/scripts/Raptors/raptora2.bos"
 LINEAR_SCALE = 65536
 ANGULAR_SCALE = 182
@@ -242,19 +244,6 @@ OPS = {
 	'xor' : OPCODES['LOGICAL_XOR'],
 }
 
-OPS_PYEVAL = {
-	"+" : "+",
-	"-" : "-",
-	"*" : "*",
-	"/" : "/",
-	"&" : "&&",
-	"|" : "||",
-	"^" : "^^",
-	"%" : "%",
-}
-
-OPS_PYEVAL_PRECEDENCE = ["%", "*", "/", "+", "-", "|", "&", "^"]
-
 OPS_PRECEDENCE = {
 	'*' : 1,
 	'/' : 1,
@@ -349,129 +338,24 @@ class Node(object):
 			for child in self._children:
 				child.print_node(indent, out_file=out_file, verbose=verbose)
 
-	def term_is_a_signedFloatConstant(self):
-		if self._type== "term" and len(self._children)==1:
-			child = self._children[0]
-			if child._type== "constant"  and len(child._children)==1:
-				child = child._children[0]
-				if child._type== "signedFloatConstant" and len(child._children)==1:
-					child = child._children[0]
-					if child._type== "floatConstant" and len(child._children)==0:
-						return child
-		return None
-
-	def fold_node(self, depth = 0):
-		# We need to fold left, fold right and check for parenthesis
-		foldcount = 0
+	def fold_node(self):
+		count = 0
 		for child in self._children:
-			foldcount += child.fold_node(depth +1)
+			count += child.fold_node()
 
-		foldedone = True
-		while(foldedone):
-			foldedone = False
+		if self._type == 'term' and len(self._children) == 3:
+			symbol_start, middle, symbol_end = self._children
+			if (symbol_start.get_type() == 'symbol' and symbol_end.get_type() == 'symbol'
+					and symbol_start.get_text() == '(' and symbol_end.get_text() == ')'
+					and middle.get_type() == 'expression' and len(middle.get_children()) == 1):
+				if term_constant_value(middle.get_children()[0]) is not None:
+					self._children = [middle.get_children()[0].get_children()[0]]
+					count += 1
 
-			# Handle Negative
-			if self._type == "signedFloatConstant" and len(self._children) ==2 and self._children[0]._text == '-':
-				self._children.pop(0)
-				self._children[0]._text = '-' + self._children[0]._text
+		elif self._type == 'expression':
+			count += fold_expression(self)
 
-			#Handle []
-			if self._type == "constant" and len(self._children) ==3:
-				sym1 = self._children[0]._text
-				sym2 = self._children[2]._text
-				if sym1 == '[' and sym2 == ']':
-					self._children.pop(2)
-					self._children.pop(0)
-					self._children[0]._children[0]._text = str(float(self._children[0]._children[0]._text) * LINEAR_SCALE)
-					
-				if sym1 == '<' and sym2 == '>':
-					self._children.pop(2)
-					self._children.pop(0)
-					self._children[0]._children[0]._text = str(float(self._children[0]._children[0]._text) * ANGULAR_SCALE)
-
-
-
-			if self._type == 'expression' and len(self._children) >=2:
-				for pyop in OPS_PYEVAL_PRECEDENCE: 
-					i = 0
-					while (i < len(self._children) - 1):
-					#for i in range(len(self._children) - 1):
-						# we always fold into term1 in this case, and delete the next opterm
-						if (i+1) >= len(self._children):
-							break
-						term1 = self._children[i].term_is_a_signedFloatConstant()
-						if not term1 and self._children[i]._type == 'opterm' and self._children[i]._children[1].term_is_a_signedFloatConstant():
-							term1 = self._children[i]._children[1].term_is_a_signedFloatConstant()
-						if term1 is None:
-							i+=1
-							continue
-
-						opterm = self._children[i+1]
-						if opterm._children[0]._type != "op" or len(opterm._children) < 2:
-							i+=1
-							continue
-
-						term2 = opterm._children[1].term_is_a_signedFloatConstant()
-						if term2 is None:
-							i+=1
-							continue
-
-						op = opterm._children[0]._children[0]._text
-						if op != pyop:
-							i+=1
-							continue
-
-						try:
-							expr = term1._text + ' ' + op + ' ' + term2._text
-							result = eval(expr)
-							if op == '/' and abs(float(result)) < 1 and float(term1._text) !=0:
-								print ("Warning: A division folding resulted in < 1 result", expr)
-								raise 
-							term1._text = str(result)
-							self._children.pop(i+1)
-							#print("Eval of %s to %f successful"%( expr, result))
-
-
-							foldcount += 1
-							foldedone = True
-	
-						except:
-							i+=1
-							print ("Warning: Cant evaluate expression", expr)
-							
-
-					
-						"""
-							<term>
-							<symbol> ( </symbol>
-							<expression>
-								<term>
-								<constant>
-									<signedFloatConstant>
-									<floatConstant> 3 </floatConstant>
-									</signedFloatConstant>
-								</constant>
-								</term>
-							</expression>
-							<symbol> ) </symbol>
-							</term>
-				"""
-			if self._type == "term" and len(self._children) == 3:
-				symbolstart = self._children[0]
-				symbolend = self._children[2]
-				expression = self._children[1]
-				if symbolstart._type == "symbol" and symbolend._type == "symbol" and len(expression._children) == 1:
-					newterm = expression._children[0].term_is_a_signedFloatConstant()
-					if newterm is not None:
-						self._children=[expression._children[0]._children[0]]
-						#print("folded parenthesis")
-						foldcount += 1
-						foldedone = True
-
-			return foldcount
-
-				## looks like we can fold these two into a simple term
-
+		return count
 
 	def __getitem__(self, i):
 		return self._children[i]
@@ -495,6 +379,159 @@ class Node(object):
 		for child in self._children:
 			d += child.count_descendants()
 		return d
+
+INT32_MIN = -2147483648
+INT32_MAX = 2147483647
+
+FOLDABLE_OPS = frozenset(('+', '-', '*', '/', '%', '&', '|', '^'))
+ASSOCIATIVE_OPS = frozenset(('+', '*', '&', '|', '^'))
+
+
+def constant_value(node):
+	if node.get_type() != 'constant':
+		return None
+	children = node.get_children()
+	if len(children) == 3:
+		if (children[0].get_text(), children[2].get_text()) == ('[', ']'):
+			scale = LINEAR_SCALE
+		elif (children[0].get_text(), children[2].get_text()) == ('<', '>'):
+			scale = ANGULAR_SCALE
+		else:
+			return None
+		raw = children[1].get_text()
+	elif len(children) == 1:
+		scale = 1
+		raw = children[0].get_text()
+	else:
+		return None
+	try:
+		return int(scale * float(raw))
+	except ValueError:
+		return None
+
+
+def term_constant_value(term):
+	if term.get_type() != 'term' or len(term.get_children()) != 1:
+		return None
+	return constant_value(term.get_children()[0])
+
+
+def island_starts_safe(node, k):
+	children = node._children
+	if k == 0:
+		return True
+	left_op = children[k][0].get_text()
+	first_op = children[k + 1][0].get_text()
+	if OPS_PRECEDENCE[first_op] < OPS_PRECEDENCE[left_op]:
+		return True
+	return (OPS_PRECEDENCE[first_op] == OPS_PRECEDENCE[left_op]
+			and left_op == first_op and first_op in ASSOCIATIVE_OPS)
+
+
+def island_ends_safe(node, m):
+	children = node._children
+	if m + 1 >= len(children):
+		return True
+	last_op = children[m][0].get_text()
+	boundary_op = children[m + 1][0].get_text()
+	return OPS_PRECEDENCE[last_op] <= OPS_PRECEDENCE[boundary_op]
+
+
+def _apply_fold_op(left, op, right):
+	if op == '+':
+		result = left + right
+	elif op == '-':
+		result = left - right
+	elif op == '*':
+		result = left * right
+	elif op == '/':
+		if right == 0:
+			raise ZeroDivisionError(op)
+		quotient = abs(left) // abs(right)
+		result = quotient if (left < 0) == (right < 0) else -quotient
+	elif op == '%':
+		if right == 0:
+			raise ZeroDivisionError(op)
+		remainder = abs(left) % abs(right)
+		result = remainder if left >= 0 else -remainder
+	elif op == '&':
+		result = left & right
+	elif op == '|':
+		result = left | right
+	else:
+		result = left ^ right
+	if not INT32_MIN <= result <= INT32_MAX:
+		raise OverflowError(op)
+	return result
+
+
+def evaluate_island(tokens):
+	values = []
+	pending = []
+	for token in tokens:
+		if isinstance(token, str):
+			while pending and OPS_PRECEDENCE[pending[-1]] <= OPS_PRECEDENCE[token]:
+				op = pending.pop()
+				right = values.pop()
+				left = values.pop()
+				values.append(_apply_fold_op(left, op, right))
+			pending.append(token)
+		else:
+			if not INT32_MIN <= token <= INT32_MAX:
+				raise OverflowError(token)
+			values.append(token)
+	while pending:
+		op = pending.pop()
+		right = values.pop()
+		left = values.pop()
+		values.append(_apply_fold_op(left, op, right))
+	return values[0]
+
+
+def fold_expression(node):
+	count = 0
+	children = node._children
+	k = 0
+	while k < len(children):
+		term = children[0] if k == 0 else children[k][1]
+		value = term_constant_value(term)
+		if value is None or k + 1 >= len(children) or not island_starts_safe(node, k):
+			k += 1
+			continue
+		tokens = [value]
+		m = k
+		while m + 1 < len(children):
+			opterm = children[m + 1]
+			op = opterm[0].get_text()
+			if op not in FOLDABLE_OPS:
+				break
+			right = term_constant_value(opterm[1])
+			if right is None:
+				break
+			tokens.append(op)
+			tokens.append(right)
+			m += 1
+		if m == k or not island_ends_safe(node, m):
+			k = m + 1 if m > k else k + 1
+			continue
+		try:
+			result = evaluate_island(tokens)
+		except (OverflowError, ZeroDivisionError):
+			print("Warning: not folding constant expression '%s'" % node.get_text())
+			k = m + 1
+			continue
+		new_term = Node('term')
+		new_constant = Node('constant')
+		new_constant.add_child(Node('integerConstant', str(result)))
+		new_term.add_child(new_constant)
+		if k == 0:
+			children[0:m + 1] = [new_term]
+		else:
+			children[k]._children[1] = new_term
+			del children[k + 1:m + 1]
+		count += 1
+		k += 1
+	return count
 
 	def __repr__(self) -> str:
 		return f'{self._type}:{self.count_descendants()}/{len(self._children)}:{self._text}'
@@ -695,50 +732,8 @@ AXES = ('x', 'y', 'z')
 IGNORED_SYMBOLS = (';','(',')', '{', '}', ',')
 IGNORED_KEYWORDS = ('accelerate','decelerate')
 
-# GLTF -> Spring axis remapping, see GLTF_AXIS_SWAP.md and
-# RecoilEngine/rts/Rendering/Models/GLTFParser.cpp (CGLTFParser::Load)
-# Map entry: script axis letter -> (spring axis letter,
-#                        negate turn/spin on-axis value, negate move on-axis value)
-# Bare `#define GLTF` / --gltf-swap: default engine path (x -> x, y -> -z, z -> y)
-GLTF_AXIS_MAP_DEFAULT = {'x': ('x', False, False), 'y': ('z', True, True), 'z': ('y', False, False)}
-# --gltf-swap-s3o: s3ocompat path (x -> -x, y -> z, z -> y)
-GLTF_AXIS_MAP_S3O = {'x': ('x', True, True), 'y': ('z', False, False), 'z': ('y', False, False)}
-
-def parse_gltf_spec(spec, context = ""):
-	# Graduated `;`-separated format, see GLTF_AXIS_SWAP.md:
-	#   3 fields: target axis for script x,y,z
-	#   6 fields: + sign per axis, applied to both turn and move values
-	#   9 fields: + turn/spin signs per axis + move signs per axis
-	# An empty spec (bare `#define GLTF`) enables the default engine path.
-	spec = (spec or '').strip()
-	if spec == '':
-		return GLTF_AXIS_MAP_DEFAULT
-	parts = [p.strip().lower() for p in spec.split(';')]
-	parts = [p for p in parts if p != '']
-	if len(parts) not in (3, 6, 9):
-		raise ValueError("expected 3, 6 or 9 ';' separated fields, got %d (%s)%s" % (len(parts), spec, context))
-	remap = parts[:3]
-	for p in remap:
-		if p not in AXES:
-			raise ValueError("an axis field must be x, y or z, got %r (%s)%s" % (p, spec, context))
-	if len(parts) == 3:
-		turn_signs = ['+'] * 3
-		move_signs = ['+'] * 3
-	elif len(parts) == 6:
-		turn_signs = parts[3:6]
-		move_signs = parts[3:6]
-	else:
-		turn_signs = parts[3:6]
-		move_signs = parts[6:9]
-	for p in turn_signs + move_signs:
-		if p not in ('+', '-'):
-			raise ValueError("a sign field must be + or -, got %r (%s)%s" % (p, spec, context))
-	return {ax: (target, turn_signs[i] == '-', move_signs[i] == '-')
-			for i, (ax, target) in enumerate(zip(AXES, remap))}
-
 class Compiler(object):
-	def __init__(self, tree, cobVersion = 4, axis_map = None):
-		self._axis_map = axis_map
+	def __init__(self, tree, cobVersion = 4):
 		self._static_vars = []
 		self._local_vars = []
 		self._pieces = []
@@ -935,21 +930,6 @@ class Compiler(object):
 			keyword += '-%s' % (node[i + 2].get_text())
 			i += 2
 
-		base_keyword = keyword
-		# axis remap/inversion: the axis node comes AFTER the value expression in
-		# reverse order, so find it up front to know if the on-axis value gets negated.
-		# turn/spin values are angular, move values linear; each gets its own sign.
-		gltf_invert_value = False
-		if self._axis_map is not None:
-			for child_node in node.get_children():
-				if child_node.get_type() == 'axis':
-					entry = self._axis_map[child_node[0].get_text().lower()]
-					if base_keyword == 'move':
-						gltf_invert_value = entry[2]
-					elif base_keyword in ('turn', 'spin'):
-						gltf_invert_value = entry[1]
-					break
-
 		if keyword == 'set' or keyword == 'attach-unit':
 			children = node.get_children()
 		else:
@@ -972,20 +952,9 @@ class Compiler(object):
 				arguments.append(func_index)
 			elif child_node.get_type() == 'axis':
 				letter = child_node[0].get_text().lower()
-				if self._axis_map is not None:
-					letter = self._axis_map[letter][0]
 				arguments.append(AXES.index(letter))
 			elif child_node.get_type() == 'expression':
-				# axis remap/inversion: negate the signed on-axis value (turn angle,
-				# move position, spin speed) when the swapped spring axis is inverted.
-				# scale/decelerate/etc values are magnitudes and never negated.
-				invert = (self._axis_map is not None and gltf_invert_value and
-							base_keyword in ('turn', 'move', 'spin'))
-				if invert:
-					self._code += OPCODES['PUSH_CONSTANT'] + get_signed_num(-1)
 				self.parse(child_node)
-				if invert:
-					self._code += OPCODES['MUL']
 			elif child_node.get_type() == 'expressionList':
 				if len(child_node.get_children()) > 0:
 					self.parse(child_node[0])
@@ -1107,7 +1076,7 @@ class Compiler(object):
 			pass
 		self._code += opcode
 		if len(node.get_children()) == 1: #normal number
-			value = round(float(node.get_text()))
+			value = int(float(node.get_text()))
 			if value < 0:
 				self._code += get_signed_num(value)
 			else:
@@ -1410,20 +1379,7 @@ def main(path, output_path = None):
 		content = pcpp_preproc.preprocess()
 		gltf_macro = pcpp_preproc.macros.get('GLTF')
 		if gltf_macro is not None:
-			gltf_spec = ''.join(t.value for t in gltf_macro.value) if gltf_macro.value else ''
-			if args.gltf_swap or args.gltf_swap_s3o:
-				print ("Note: '#define GLTF' in file overrides --gltf-swap/--gltf-swap-s3o")
-			try:
-				axis_map = parse_gltf_spec(gltf_spec, " (#define GLTF at line %s of %s)" % (gltf_macro.lineno, gltf_macro.source))
-			except ValueError as e:
-				print ("Invalid #define GLTF: %s" % e)
-				sys.exit(1)
-		elif args.gltf_swap:
-			axis_map = GLTF_AXIS_MAP_DEFAULT
-		elif args.gltf_swap_s3o:
-			axis_map = GLTF_AXIS_MAP_S3O
-		else:
-			axis_map = None
+			print ("Warning: '#define GLTF' axis remapping is deprecated and ignored; current RecoilEngine versions convert GLTF model axes while loading")
 		if args.dumppcpp:
 			print("Writing PCPP file as "+bos_file_path+'.pcpp')
 			with open(bos_file_path + '.pcpp','w') as f:
@@ -1456,23 +1412,14 @@ def main(path, output_path = None):
 		# sys.stdout = output_file
 			
 		if not args.dontfold:
-			#print ("Folding Constants %s"%(bos_file_path))
 			folds = root.fold_node()
-			totalfolds = folds
-			passes = 0
-			while (folds > 0):
-				#print("Pass", folds)
-				folds = root.fold_node()
-				totalfolds += folds
-				passes  +=1
-			
 			if args.dumpast:
 				root.print_node(verbose=False, out_file=(open(output_path+"_folded.ast",'w')))
 
-			print("Folded %d constants in %d passes" %(totalfolds, passes))
+			print("Folded %d constants" % folds)
 			
 		print ("Compiling %s"%(bos_file_path))
-		comp = Compiler(root, cobVersion = (8 if args.shortopcodes == True else 4 ), axis_map = axis_map)
+		comp = Compiler(root, cobVersion = (8 if args.shortopcodes == True else 4 ))
 
 		#OUTPUT NEW COB
 
