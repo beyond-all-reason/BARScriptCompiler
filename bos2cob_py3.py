@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore', 'write lextab module')
 from io import StringIO
 import pcpp 
 
-version = "1.2"
+version = "1.3"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
@@ -24,13 +24,11 @@ parser.add_argument("--dumpast", action='store_true', help = "Dump the parsed sy
 parser.add_argument("--dumppcpp", action='store_true', help = "Dump the results of the pcpp preprocessor")
 parser.add_argument("--include", type= str, help = "Additional include directory for pcpp preprocessor")
 gltf_swap_group = parser.add_mutually_exclusive_group()
-gltf_swap_group.add_argument("--gltf-swap", action='store_true', help = "Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading")
-gltf_swap_group.add_argument("--gltf-swap-s3o", action='store_true', help = "Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading")
+gltf_swap_group.add_argument("--gltf-swap", action='store_true', help = "Rewrite script axes from GLTF Z-up model space to engine Spring space (see GLTF_AXIS_SWAP.md)")
+gltf_swap_group.add_argument("--gltf-swap-s3o", action='store_true', help = "Same as --gltf-swap, but for models with s3ocompat=true in their .lua metafile")
 parser.add_argument("filename", type = str, help= "A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos", default=  "", nargs='?')
 
 args = parser.parse_args()
-if args.gltf_swap or args.gltf_swap_s3o:
-	print ("Warning: --gltf-swap and --gltf-swap-s3o are deprecated no-ops; current RecoilEngine versions convert GLTF model axes while loading")
 #args.filename = "C:/Users/Peti/Documents/My Games/Spring/games/Beyond-All-Reason.sdd/scripts/Raptors/raptora2.bos"
 LINEAR_SCALE = 65536
 ANGULAR_SCALE = 182
@@ -747,8 +745,50 @@ AXES = ('x', 'y', 'z')
 IGNORED_SYMBOLS = (';','(',')', '{', '}', ',')
 IGNORED_KEYWORDS = ('accelerate','decelerate')
 
+# GLTF -> Spring axis remapping, see GLTF_AXIS_SWAP.md and
+# RecoilEngine/rts/Rendering/Models/GLTFParser.cpp (CGLTFParser::Load)
+# Map entry: script axis letter -> (spring axis letter,
+#                        negate turn/spin on-axis value, negate move on-axis value)
+# Bare `#define GLTF` / --gltf-swap: default engine path (x -> x, y -> -z, z -> y)
+GLTF_AXIS_MAP_DEFAULT = {'x': ('x', False, False), 'y': ('z', True, True), 'z': ('y', False, False)}
+# --gltf-swap-s3o: s3ocompat path (x -> -x, y -> z, z -> y)
+GLTF_AXIS_MAP_S3O = {'x': ('x', True, True), 'y': ('z', False, False), 'z': ('y', False, False)}
+
+def parse_gltf_spec(spec, context = ""):
+	# Graduated `;`-separated format, see GLTF_AXIS_SWAP.md:
+	#   3 fields: target axis for script x,y,z
+	#   6 fields: + sign per axis, applied to both turn and move values
+	#   9 fields: + turn/spin signs per axis + move signs per axis
+	# An empty spec (bare `#define GLTF`) enables the default engine path.
+	spec = (spec or '').strip()
+	if spec == '':
+		return GLTF_AXIS_MAP_DEFAULT
+	parts = [p.strip().lower() for p in spec.split(';')]
+	parts = [p for p in parts if p != '']
+	if len(parts) not in (3, 6, 9):
+		raise ValueError("expected 3, 6 or 9 ';' separated fields, got %d (%s)%s" % (len(parts), spec, context))
+	remap = parts[:3]
+	for p in remap:
+		if p not in AXES:
+			raise ValueError("an axis field must be x, y or z, got %r (%s)%s" % (p, spec, context))
+	if len(parts) == 3:
+		turn_signs = ['+'] * 3
+		move_signs = ['+'] * 3
+	elif len(parts) == 6:
+		turn_signs = parts[3:6]
+		move_signs = parts[3:6]
+	else:
+		turn_signs = parts[3:6]
+		move_signs = parts[6:9]
+	for p in turn_signs + move_signs:
+		if p not in ('+', '-'):
+			raise ValueError("a sign field must be + or -, got %r (%s)%s" % (p, spec, context))
+	return {ax: (target, turn_signs[i] == '-', move_signs[i] == '-')
+			for i, (ax, target) in enumerate(zip(AXES, remap))}
+
 class Compiler(object):
-	def __init__(self, tree, cobVersion = 4):
+	def __init__(self, tree, cobVersion = 4, axis_map = None):
+		self._axis_map = axis_map
 		self._static_vars = []
 		self._local_vars = []
 		self._all_local_vars = []
@@ -954,6 +994,21 @@ class Compiler(object):
 			keyword += '-%s' % (node[i + 2].get_text())
 			i += 2
 
+		base_keyword = keyword
+		# axis remap/inversion: the axis node comes AFTER the value expression in
+		# reverse order, so find it up front to know if the on-axis value gets negated.
+		# turn/spin values are angular, move values linear; each gets its own sign.
+		gltf_invert_value = False
+		if self._axis_map is not None:
+			for child_node in node.get_children():
+				if child_node.get_type() == 'axis':
+					entry = self._axis_map[child_node[0].get_text().lower()]
+					if base_keyword == 'move':
+						gltf_invert_value = entry[2]
+					elif base_keyword in ('turn', 'spin'):
+						gltf_invert_value = entry[1]
+					break
+
 		if keyword == 'set' or keyword == 'attach-unit':
 			children = node.get_children()
 		else:
@@ -982,9 +1037,20 @@ class Compiler(object):
 				arguments.append(func_index)
 			elif child_node.get_type() == 'axis':
 				letter = child_node[0].get_text().lower()
+				if self._axis_map is not None:
+					letter = self._axis_map[letter][0]
 				arguments.append(AXES.index(letter))
 			elif child_node.get_type() == 'expression':
+				# axis remap/inversion: negate the signed on-axis value (turn angle,
+				# move position, spin speed) when the swapped spring axis is inverted.
+				# scale/decelerate/etc values are magnitudes and never negated.
+				invert = (self._axis_map is not None and gltf_invert_value and
+							base_keyword in ('turn', 'move', 'spin'))
+				if invert:
+					self._code += OPCODES['PUSH_CONSTANT'] + get_signed_num(-1)
 				self.parse(child_node)
+				if invert:
+					self._code += OPCODES['MUL']
 			elif child_node.get_type() == 'expressionList':
 				if len(child_node.get_children()) > 0:
 					self.parse(child_node[0])
@@ -1429,7 +1495,20 @@ def main(path, output_path = None):
 		content = pcpp_preproc.preprocess()
 		gltf_macro = pcpp_preproc.macros.get('GLTF')
 		if gltf_macro is not None:
-			print ("Warning: '#define GLTF' axis remapping is deprecated and ignored; current RecoilEngine versions convert GLTF model axes while loading")
+			gltf_spec = ''.join(t.value for t in gltf_macro.value) if gltf_macro.value else ''
+			if args.gltf_swap or args.gltf_swap_s3o:
+				print ("Note: '#define GLTF' in file overrides --gltf-swap/--gltf-swap-s3o")
+			try:
+				axis_map = parse_gltf_spec(gltf_spec, " (#define GLTF at line %s of %s)" % (gltf_macro.lineno, gltf_macro.source))
+			except ValueError as e:
+				print ("Invalid #define GLTF: %s" % e)
+				sys.exit(1)
+		elif args.gltf_swap:
+			axis_map = GLTF_AXIS_MAP_DEFAULT
+		elif args.gltf_swap_s3o:
+			axis_map = GLTF_AXIS_MAP_S3O
+		else:
+			axis_map = None
 		if args.dumppcpp:
 			print("Writing PCPP file as "+bos_file_path+'.pcpp')
 			with open(bos_file_path + '.pcpp','w') as f:
@@ -1470,7 +1549,7 @@ def main(path, output_path = None):
 			print("Folded %d constants" % folds)
 			
 		print ("Compiling %s"%(bos_file_path))
-		comp = Compiler(root, cobVersion = (8 if args.shortopcodes == True else 4 ))
+		comp = Compiler(root, cobVersion = (8 if args.shortopcodes == True else 4 ), axis_map = axis_map)
 
 		#OUTPUT NEW COB
 

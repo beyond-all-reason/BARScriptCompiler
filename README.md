@@ -31,18 +31,18 @@ The `.cob` output is written next to the `.bos` source.
 --dumpast          Dump the parsed syntax tree into a _initial.ast file
 --dumppcpp         Dump the results of the pcpp preprocessor
 --include <dir>    Additional include directory for pcpp preprocessor
---gltf-swap        Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading
---gltf-swap-s3o    Deprecated no-op; current RecoilEngine versions convert GLTF model axes while loading
+--gltf-swap        Rewrite script axes from GLTF Z-up model space to engine Spring space (see GLTF_AXIS_SWAP.md)
+--gltf-swap-s3o    Same as --gltf-swap, but for models with s3ocompat=true in their .lua metafile
 <filename>         A bos file to compile, or a directory of bos files to work on, such as ../units/myunit.bos
 ```
 
 The `WARNING: Couldn't write lextab module 'pcpp.lextab'. [Errno 2] No such file or directory` warning can safely be ignored.
 
-Current RecoilEngine versions convert GLTF/GLB node and geometry coordinates into
-the engine model frame while loading. BOS files therefore use the same axes for
-equivalent S3O and GLTF models. The old GLTF flags and special `#define GLTF`
-interpretation are deprecated no-ops retained only to diagnose stale build scripts.
-See [GLTF_AXIS_SWAP.md](GLTF_AXIS_SWAP.md) for migration instructions.
+`--gltf-swap` rewrites the axis of every `turn`/`move`/`spin` (and `stop-spin`/`scale`/`wait-*`)
+statement from the GLTF authoring frame (Z-up) to the engine's Spring frame, inserting a runtime
+`* -1` on signed on-axis values where the swap negates the axis. Alternatively, put a
+`#define GLTF` (optionally with a custom axis spec) in the `.bos` file itself; per-file defines
+override the flags. See [GLTF_AXIS_SWAP.md](GLTF_AXIS_SWAP.md).
 
 ## Disassembling COB files
 
