@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore', 'write lextab module')
 from io import StringIO
 import pcpp 
 
-version = "1.3"
+version = "1.5"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
@@ -1520,17 +1520,25 @@ def main(path, output_path = None):
 			print("Leftovers while parsing:")
 			print (pump._leftovers[pump._index - 1:pump._max_index], pump._index, pump._max_index)
 			print("At: " + ''.join([t[0] for t in pump._leftovers[pump._index - 1:pump._max_index]]))
-			print ("Syntax Error!")
+			error_token, error_offset = pump._leftovers[pump._index - 1]
 			lines = content.splitlines()
-			for j in range(pump._max_index -4, pump._max_index):
-				word, offset = pump._leftovers[j]
-				searchpos = 0
-				for i,line in enumerate(lines):
-					#print (len(line))
-					searchpos += len(line) + 1
-					if searchpos > offset:
-						print("%d: At line %d (offset = %d) with token %s "%(j, i+1, offset, word ))
-						break
+			line_no = 0
+			col = 0
+			searchpos = 0
+			for i,line in enumerate(lines):
+				if searchpos + len(line) >= error_offset:
+					line_no = i + 1
+					col = error_offset - searchpos
+					break
+				searchpos += len(line) + 1
+			if line_no == 0:
+				line_no = len(lines)
+				col = len(lines[-1]) if lines else 0
+			print ("Syntax Error! At line %d (offset = %d) with token %s" % (line_no, error_offset, error_token))
+			start = max(0, line_no - 5)
+			for i in range(start, line_no):
+				print("%4d  %s" % (i + 1, lines[i]))
+			print("%4s  %s^" % ("", lines[line_no - 1][:col].expandtabs(8)))
 			sys.exit(1)
 
 		output_path = "%s.%s" % (os.path.splitext(bos_file_path)[0], COB_EXT)
