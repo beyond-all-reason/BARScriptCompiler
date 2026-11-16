@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore', 'write lextab module')
 from io import StringIO
 import pcpp 
 
-version = "1.5"
+version = "1.6"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--shortopcodes", action='store_true', help = "Use uint8_t opcodes (EXPERIMENTAL with engine branch CobShortOpCodes)")
@@ -914,8 +914,12 @@ class Compiler(object):
 		if len(self._code) == code_len:
 			self._code = b""
 
-		#insert return if necessary
-		if self._code[-4:] != OPCODES['RETURN']:
+		# Check the final top-level statement, not the last bytecode word:
+		# a conditional return or an operand does not prevent fallthrough.
+		statements = [child for child in node[4].get_children() if child.get_type() == 'statement']
+		has_final_return = (statements and statements[-1][0].get_type() == 'keywordStatement'
+				and statements[-1][0][0].get_type() == 'returnStatement')
+		if not has_final_return:
 			self._code += OPCODES['PUSH_CONSTANT'] + get_num(0)
 			self._code += OPCODES['RETURN']
 

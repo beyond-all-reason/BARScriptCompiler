@@ -23,6 +23,18 @@ python bos2cob_py3.py path/to/file.bos
 
 The `.cob` output is written next to the `.bos` source.
 
+## Function returns
+
+Reaching the end of a function implicitly returns `0`, including paths that skip
+an explicit return inside an `if` or `while`. A bare `return;` also returns `0`.
+An explicit `return (value);` exits the current function with that value.
+
+BOS `call-script` waits for the called function but cannot read its return
+expression. Use static variables to pass results between BOS functions. Engine
+call-ins can give return expressions a specific meaning, such as aiming success
+for `AimWeaponX` or the wreck type for `Killed`. Output parameters read by the
+engine, such as those used by `QueryWeaponX`, are separate from return expressions.
+
 ## Command line args
 
 ```
