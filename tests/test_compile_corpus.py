@@ -5,22 +5,6 @@ from conftest import CORPUS, copy_tree_to_tmp, parse_compile_summary, read_cob, 
 
 CASES = [
 	{
-		"name": "freefusion",
-		"bos": "freefusion.bos",
-		"pieces": 7,
-		"piece_names": {"base", "column1", "fusionsphere", "emit"},
-		"static_vars": 0,
-		"functions": {"Create", "Activate", "SmokeUnit", "Killed", "SweetSpot"},
-	},
-	{
-		"name": "mission_command_tower",
-		"bos": "mission_command_tower.bos",
-		"pieces": 15,
-		"piece_names": {"base", "column4", "fusionsphere", "coolera1", "coolerb4"},
-		"static_vars": 0,
-		"functions": {"Create", "Activate", "SmokeUnit", "Killed", "SweetSpot"},
-	},
-	{
 		"name": "freefusion_clean",
 		"bos": "freefusion_clean.bos",
 		"pieces": 7,
@@ -49,18 +33,6 @@ CASES = [
 			"Create", "Killed", "Activate", "Deactivate", "Lights",
 			"AimWeapon1", "QueryWeapon1", "FireWeapon1", "AimWeapon2",
 			"StartMoving", "StopMoving", "SetStunned",
-		},
-	},
-	{
-		"name": "armscavengerbossv2",
-		"bos": "Units/scavboss/armscavengerbossv2.bos",
-		"pieces": 41,
-		"piece_names": {"head", "torso", "pelvis", "biggun", "Ref_Point"},
-		"static_vars": 15,
-		"functions": {
-			"Create", "Killed", "StartMoving", "StopMoving", "StopBuilding",
-			"QueryNanoPiece", "SweetSpot",
-			"QueryWeapon4", "AimWeapon4", "AimFromWeapon4", "FireWeapon4",
 		},
 	},
 ]

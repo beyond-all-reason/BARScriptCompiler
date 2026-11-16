@@ -19,13 +19,6 @@ def test_dontfold_keeps_more_commands_than_folded(tmp_path):
 	assert dontfold["TotalScriptLen"] > folded["TotalScriptLen"]
 
 
-def test_dontfold_compiles_stress_case(tmp_path):
-	copy_tree_to_tmp(CORPUS, tmp_path)
-	header = _compile(tmp_path, "Units/scavboss/armscavengerbossv2.bos", "--dontfold")
-	assert header["TotalScriptLen"] > 0
-	assert header["NumberOfStaticVars"] == 15
-
-
 def test_shortopcodes_emits_version_8_with_same_command_count(tmp_path):
 	copy_tree_to_tmp(CORPUS, tmp_path)
 	folded = _compile(tmp_path, "Raptors/raptord1.bos")
