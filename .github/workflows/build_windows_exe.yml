@@ -17,23 +17,32 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    # Build natively so the workflow does not depend on Wine inside Docker.
+    runs-on: windows-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Package BARScriptCompiler for Windows
-        uses: JackMcKew/pyinstaller-action-windows@main
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          path: .
-          spec: BARScriptCompiler.spec
-          requirements: requirements.txt # <-- ADD THIS LINE
-            
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pcpp==1.30 ply==3.11 pyinstaller==6.4.0
+
+      - name: Package BARScriptCompiler for Windows
+        run: python -m PyInstaller --clean --noconfirm BARScriptCompiler.spec
+
+      - name: Smoke test executable
+        run: .\dist\BARScriptCompiler.exe --help
+
       - uses: actions/upload-artifact@v4
         with:
           name: BARScriptCompiler.exe
-          path: dist/windows
+          path: dist/BARScriptCompiler.exe
+          if-no-files-found: error
